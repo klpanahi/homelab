@@ -1,0 +1,24 @@
+Codemap scan: 2026-06-10
+Status: INITIAL GENERATION (no prior codemaps)
+
+Files scanned: 7
+  terraform/main.tf
+  terraform/homelab2.tf
+  terraform/variables.tf
+  terraform/terraform.tfvars.example
+  terraform/.terraform.lock.hcl
+  README.md
+  agent.md
+
+Codemaps written:
+  docs/CODEMAPS/architecture.md  — system overview, networking, backup, provisioning flow
+  docs/CODEMAPS/infrastructure.md — Terraform resources, variables, provider config
+  docs/CODEMAPS/dependencies.md  — providers, external services, runtime requirements
+
+Architecture notes:
+  - Single active Terraform node (homelab2); second node not yet in IaC
+  - HAOS provisioned via null_resource + SSH workaround (bpg/proxmox xz limitation)
+  - ansible/ and compose/ directories planned but not yet present in repo
+
+Staleness warnings:
+  - None (initial generation)

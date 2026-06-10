@@ -1,0 +1,10 @@
+proxmox_endpoint  = "https://192.168.68.65:8006"
+proxmox_api_token = "terraform@pve!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+proxmox_node      = "homelab2"
+haos_version      = "17.3"   # check https://github.com/home-assistant/operating-system/releases
+
+# Static IP for Home Assistant — leave haos_static_ip empty to keep DHCP
+haos_static_ip     = "192.168.68.100/24"
+haos_gateway       = "192.168.68.1"
+haos_nameserver    = "8.8.8.8"
+# haos_network_iface = "enp0s18"   # default; Q35 machine with virtio NIC
