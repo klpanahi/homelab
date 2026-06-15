@@ -38,6 +38,12 @@ variable "proxmox_ssh_private_key_path" {
   default     = "~/.ssh/id_ed25519"
 }
 
+variable "haos_mac_address" {
+  description = "Fixed MAC address for the Home Assistant VM NIC. Keeps the VM's L2 identity stable across reboots and re-creation. Uses Proxmox's BC:24:11 OUI by convention."
+  type        = string
+  default     = "BC:24:11:00:02:00"
+}
+
 variable "haos_static_ip" {
   description = "Static IP with CIDR prefix for Home Assistant VM, e.g. 192.168.68.100/24. Leave empty to keep DHCP."
   type        = string

@@ -8,6 +8,7 @@ resource "null_resource" "homeassistant" {
     ssh_host             = var.proxmox_ssh_host
     ssh_private_key_path = var.proxmox_ssh_private_key_path
     static_ip            = var.haos_static_ip
+    mac_address          = var.haos_mac_address
   }
 
   # self.triggers used so destroy provisioner can reference connection values
@@ -27,10 +28,17 @@ resource "null_resource" "homeassistant" {
       "[ -f /tmp/haos_ova-${var.haos_version}.qcow2 ] && echo 'Image cached' || (wget -q -O /tmp/haos_ova-${var.haos_version}.qcow2.xz 'https://github.com/home-assistant/operating-system/releases/download/${var.haos_version}/haos_ova-${var.haos_version}.qcow2.xz' && xz --decompress /tmp/haos_ova-${var.haos_version}.qcow2.xz)",
 
       # Create VM if it doesn't exist
-      "qm status 200 2>/dev/null && echo 'VM 200 exists' || qm create 200 --name homeassistant --machine q35 --bios ovmf --cores 2 --memory 4096 --net0 virtio,bridge=${var.vm_network_bridge} --agent enabled=1",
+      "qm status 200 2>/dev/null && echo 'VM 200 exists' || qm create 200 --name homeassistant --machine q35 --bios ovmf --cores 2 --memory 4096 --net0 virtio=${var.haos_mac_address},bridge=${var.vm_network_bridge} --agent enabled=1",
 
       # Ensure guest agent is enabled (idempotent for existing VMs)
       "qm set 200 --agent enabled=1",
+
+      # Pin the NIC MAC (idempotent for existing VMs). A running VM applies NIC
+      # changes only on reboot, so flag that case before committing the change.
+      # A freshly created VM hasn't started yet and boots with the right MAC.
+      "rm -f /tmp/ha_reboot_needed",
+      "qm config 200 | grep -q 'net0:.*virtio=${var.haos_mac_address}' || { qm status 200 | grep -q running && touch /tmp/ha_reboot_needed; }",
+      "qm set 200 --net0 virtio=${var.haos_mac_address},bridge=${var.vm_network_bridge}",
 
       # Add EFI disk if not already present
       "qm config 200 | grep -q efidisk0 && echo 'EFI disk exists' || qm set 200 --efidisk0 local-lvm:1,efitype=4m,pre-enrolled-keys=0",
@@ -43,6 +51,10 @@ resource "null_resource" "homeassistant" {
 
       # Start if not already running
       "qm status 200 | grep -q running && echo 'Already running' || qm start 200",
+
+      # Reboot to apply a pending MAC change on an already-running VM
+      "[ -f /tmp/ha_reboot_needed ] && { echo 'Rebooting VM 200 to apply new MAC...'; qm reboot 200; } || echo 'No reboot needed'",
+      "rm -f /tmp/ha_reboot_needed",
 
       # Clean up
       "rm -f /tmp/haos_ova-${var.haos_version}.qcow2"
