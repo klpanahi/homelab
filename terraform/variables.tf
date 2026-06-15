@@ -61,3 +61,52 @@ variable "haos_network_iface" {
   type        = string
   default     = "enp0s18"
 }
+
+# ── nginx VM ─────────────────────────────────────────────────────────────────
+
+variable "nginx_vm_id" {
+  description = "Proxmox VM ID for the nginx VM"
+  type        = number
+  default     = 201
+}
+
+variable "nginx_cpu_cores" {
+  description = "Number of vCPU cores for the nginx VM"
+  type        = number
+  default     = 1
+}
+
+variable "nginx_memory_mb" {
+  description = "RAM in MB for the nginx VM"
+  type        = number
+  default     = 1024
+}
+
+variable "nginx_disk_gb" {
+  description = "Root disk size in GB for the nginx VM"
+  type        = number
+  default     = 20
+}
+
+variable "nginx_ssh_public_key" {
+  description = "SSH public key injected into the nginx VM (ubuntu user)"
+  type        = string
+}
+
+variable "nginx_static_ip" {
+  description = "Static IP with CIDR for the nginx VM, e.g. 192.168.68.101/24. Leave empty for DHCP."
+  type        = string
+  default     = ""
+}
+
+variable "nginx_gateway" {
+  description = "Gateway for nginx VM static IP (required when nginx_static_ip is set)"
+  type        = string
+  default     = ""
+}
+
+variable "nginx_nameserver" {
+  description = "DNS nameserver for the nginx VM"
+  type        = string
+  default     = "8.8.8.8"
+}
