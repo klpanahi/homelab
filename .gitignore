@@ -11,6 +11,8 @@ terraform/crash.log
 ansible/.vault_pass
 ansible/*.retry
 ansible/group_vars/all/vault.yml
+ansible/collections/
+ansible/roles/
 
 # General
 .DS_Store

@@ -17,7 +17,10 @@ resource "proxmox_download_file" "ubuntu_noble_cloud_image" {
   overwrite = false
 }
 
-# Cloud-init user-data: creates ubuntu user, installs nginx + qemu-guest-agent.
+# Cloud-init user-data: creates the ubuntu user and installs qemu-guest-agent.
+# nginx itself is intentionally NOT installed here — Ansible (geerlingguy.nginx)
+# owns nginx so config is managed in one place. The guest agent stays because the
+# Proxmox dynamic inventory relies on it to report the VM's IP to Ansible.
 resource "proxmox_virtual_environment_file" "nginx_cloud_init" {
   content_type = "snippets"
   datastore_id = "local"
@@ -35,11 +38,9 @@ resource "proxmox_virtual_environment_file" "nginx_cloud_init" {
           ssh_authorized_keys:
             - ${var.nginx_ssh_public_key}
       packages:
-        - nginx
         - qemu-guest-agent
       runcmd:
         - systemctl enable --now qemu-guest-agent
-        - systemctl enable --now nginx
       EOF
     file_name = "nginx-cloud-init.yaml"
   }
@@ -89,6 +90,11 @@ resource "proxmox_virtual_environment_vm" "nginx" {
   name      = "nginx"
   node_name = var.proxmox_node
   vm_id     = var.nginx_vm_id
+
+  # Tags drive the Ansible dynamic inventory: the community.proxmox.proxmox
+  # plugin reads these into proxmox_tags_parsed and keys groups off them
+  # (the "nginx" tag becomes the tag_nginx group that site.yml targets).
+  tags = ["ansible", "nginx"]
 
   machine = "q35"
   on_boot = true
