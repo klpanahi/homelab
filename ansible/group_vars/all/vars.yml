@@ -1,5 +1,5 @@
 # Non-secret defaults shared across all hosts.
 #
-# The Proxmox inventory token secret is NOT here — it's an inline !vault block
-# in inventory/proxmox.yml (inventory plugins load before group_vars). Any
-# future play-level secrets can go in the gitignored group_vars/all/vault.yml.
+# Secrets live in the gitignored, vault-encrypted group_vars/all/vault.yml
+# (e.g. proxmox_token_secret, which the inventory reads via an unvault lookup).
+# Keep this file plaintext / non-secret.

@@ -15,6 +15,7 @@ ansible/
   inventory/proxmox.yml    # dynamic inventory (tags -> groups, agent IP -> ansible_host)
   group_vars/
     all/vars.yml           # non-secret shared vars (optional)
+    all/vault.yml          # GITIGNORED — vaulted proxmox_token_secret
     tag_nginx.yml          # nginx role variables
   site.yml                 # top-level playbook
 ```
@@ -33,18 +34,19 @@ ansible/
    chmod 600 .vault_pass
    ```
 
-3. **Embed the Proxmox token secret in the inventory.** Inventory plugins are
-   evaluated *before* `group_vars`, so the secret can't come from a vaulted
-   group var — it's stored as an inline `!vault` block in `inventory/proxmox.yml`.
-   Generate the block (the secret is the part after `=` in `terraform.tfvars`'
-   `proxmox_api_token`; type it at the prompt, then Ctrl-D so it never lands in
-   shell history):
+3. **Create the vaulted secrets file** with the Proxmox token secret (the part
+   after `=` in `terraform.tfvars`' `proxmox_api_token`). See
+   `group_vars/all/vault.yml.example`:
    ```bash
-   ansible-vault encrypt_string --stdin-name token_secret
+   ansible-vault create group_vars/all/vault.yml
+   # add:  proxmox_token_secret: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
    ```
-   Paste the output over the existing `token_secret: !vault |` block. Also make
-   sure `user:` and `token_id:` in the inventory match your token's `user@realm`
-   and token id (currently `root@pam` / `terraform`).
+   The inventory reads this at parse time via an `ansible.builtin.unvault`
+   lookup (inventory plugins load *before* `group_vars`, so a plain
+   `{{ proxmox_token_secret }}` group var would be undefined — the lookup
+   decrypts the file directly instead). Also make sure `user:` and `token_id:`
+   in `inventory/proxmox.yml` match your token's `user@realm` and token id
+   (currently `root@pam` / `terraform`).
 
 ## Usage
 
@@ -65,6 +67,6 @@ ansible-playbook site.yml
   access can be layered on later as its own play/group.
 - The `community.proxmox.proxmox` plugin replaces the deprecated
   `community.general.proxmox`.
-- `group_vars/all/vault.yml` is **not** required (the token secret is inline in
-  the inventory). It stays gitignored and is available if you later need
-  play-level secrets.
+- `group_vars/all/vault.yml` (gitignored) is the single source for the token
+  secret, read by the inventory via the `unvault` lookup. It also holds any
+  future play-level secrets.

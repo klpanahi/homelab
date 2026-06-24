@@ -10,11 +10,11 @@
 # and token_id below MUST match that token's user@realm and token id, or the API
 # returns 401 "no such user".
 #
-# The token secret is stored inline as an encrypted !vault block (decrypted at
-# parse time via .vault_pass). It lives here rather than in group_vars because
-# inventory plugins are evaluated BEFORE group_vars are loaded, so a
-# "{{ proxmox_token_secret }}" reference would be undefined. Regenerate with:
-#   ansible-vault encrypt_string --stdin-name token_secret
+# The token secret is read from the vaulted group_vars/all/vault.yml via an
+# ansible.builtin.unvault lookup (decrypted at parse time via .vault_pass).
+# A plain "{{ proxmox_token_secret }}" group var would be undefined here because
+# inventory plugins are evaluated BEFORE group_vars are loaded; the lookup reads
+# and decrypts the file directly instead.
 plugin: community.proxmox.proxmox
 
 url: https://192.168.68.65:8006

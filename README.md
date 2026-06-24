@@ -55,6 +55,8 @@ ssh root@192.168.68.65      # verify it works before applying
 
 ## Getting Started
 
+### 1. Provision VMs (Terraform)
+
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
@@ -64,6 +66,27 @@ terraform init
 terraform plan
 terraform apply   # requires SSH agent loaded (see Prerequisite 4)
 ```
+
+### 2. Configure VMs (Ansible)
+
+VMs are discovered through a Proxmox dynamic inventory and grouped by their
+Proxmox tags — `terraform apply` tags the nginx VM `nginx`, which Ansible
+configures with the `geerlingguy.nginx` role.
+
+```bash
+cd ansible
+ansible-galaxy install -r requirements.yml   # community.proxmox + geerlingguy.nginx
+
+# Vault password file, then the vaulted Proxmox token secret (the inventory
+# reads it via an unvault lookup — see ansible/README.md)
+printf '%s' 'your-vault-password' > .vault_pass && chmod 600 .vault_pass
+ansible-vault create group_vars/all/vault.yml   # add proxmox_token_secret
+
+ansible-inventory --graph    # nginx VM should appear under tag_nginx
+ansible-playbook site.yml
+```
+
+See [`ansible/README.md`](ansible/README.md) for details.
 
 ---
 
