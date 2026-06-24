@@ -1,0 +1,16 @@
+# Variables for the tag_nginx group (VMs tagged "nginx" in Proxmox).
+# Consumed by the geerlingguy.nginx role.
+#
+# Full variable reference:
+#   https://github.com/geerlingguy/ansible-role-nginx#role-variables
+
+# Serve a single default site on port 80. Replace/extend as services land.
+nginx_vhosts:
+  - listen: "80 default_server"
+    server_name: "_"
+    root: "/var/www/html"
+    index: "index.html"
+    filename: "default.conf"
+
+# Drop Ubuntu's packaged default site so it can't shadow our vhost.
+nginx_remove_default_vhost: true

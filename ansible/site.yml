@@ -1,0 +1,11 @@
+---
+# Top-level playbook. Run with: ansible-playbook site.yml
+#
+# Hosts are discovered via the Proxmox dynamic inventory and grouped by tag.
+# tag_nginx == VMs tagged "nginx" in Proxmox (see terraform/nginx.tf).
+
+- name: Configure nginx web servers
+  hosts: tag_nginx
+  become: true
+  roles:
+    - geerlingguy.nginx

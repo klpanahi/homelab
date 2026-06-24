@@ -1,0 +1,10 @@
+# OPTIONAL — example of a vaulted group_vars file for play-level secrets.
+#
+# The Proxmox inventory token secret does NOT go here: inventory plugins run
+# before group_vars are loaded, so it's stored as an inline !vault block in
+# inventory/proxmox.yml instead (see ansible/README.md).
+#
+# Use this file only if a playbook/role later needs an encrypted secret, e.g.:
+#   ansible-vault create group_vars/all/vault.yml
+#   # some_service_api_key: "..."
+proxmox_token_secret: "*****"
