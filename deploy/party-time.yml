@@ -1,0 +1,140 @@
+---
+# Deploy party-time application to the homelab.
+#
+# Prerequisites:
+#   1. All VMs provisioned and site.yml has been run (nginx, Docker installed).
+#   2. ./build.sh run in the party-time repo (builds Docker image + frontend dist/).
+#   3. /opt/party-time/.env.prod exists on the docker VM — create it from
+#      party-time/sample.local.env and fill in production values (DB creds, Twilio, etc.).
+#
+# Usage:
+#   ansible-playbook deploy/party-time.yml \
+#     -e party_time_repo=/path/to/party-time
+
+- name: Deploy party-time backend
+  hosts: tag_docker
+  become: true
+  vars:
+    deploy_dest: /opt/party-time
+  tasks:
+    - name: Create deploy directory
+      ansible.builtin.file:
+        path: "{{ deploy_dest }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
+    - name: Check .env.prod exists on docker VM
+      ansible.builtin.stat:
+        path: "{{ deploy_dest }}/.env.prod"
+      register: env_prod_stat
+
+    - name: Fail if .env.prod is missing
+      ansible.builtin.fail:
+        msg: >
+          {{ deploy_dest }}/.env.prod not found on {{ inventory_hostname }}.
+          Create it from party-time/sample.local.env and fill in production values.
+      when: not env_prod_stat.stat.exists
+
+    - name: Sync docker-compose.prod.yml
+      ansible.posix.synchronize:
+        src: "{{ party_time_repo }}/docker-compose.prod.yml"
+        dest: "{{ deploy_dest }}/docker-compose.prod.yml"
+
+    - name: Sync backend source
+      ansible.posix.synchronize:
+        src: "{{ party_time_repo }}/public_backend/"
+        dest: "{{ deploy_dest }}/public_backend/"
+        delete: true
+
+    - name: Remove schema.sql if Docker created it as a directory
+      ansible.builtin.file:
+        path: "{{ deploy_dest }}/schema.sql"
+        state: absent
+
+    - name: Sync schema.sql
+      ansible.posix.synchronize:
+        src: "{{ party_time_repo }}/schema.sql"
+        dest: "{{ deploy_dest }}/schema.sql"
+
+    - name: Build and start Docker stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ deploy_dest }}"
+        files:
+          - docker-compose.prod.yml
+        build: always
+        recreate: always
+        state: present
+
+    - name: Read DBUSER from .env.prod
+      ansible.builtin.shell:
+        cmd: grep '^DBUSER=' {{ deploy_dest }}/.env.prod | cut -d= -f2-
+      register: dbuser_out
+      changed_when: false
+
+    - name: Read DBNAME from .env.prod
+      ansible.builtin.shell:
+        cmd: grep '^DBNAME=' {{ deploy_dest }}/.env.prod | cut -d= -f2-
+      register: dbname_out
+      changed_when: false
+
+    - name: Wait for postgres to be ready
+      ansible.builtin.command:
+        cmd: docker exec party-time-db pg_isready -U "{{ dbuser_out.stdout }}"
+      register: pg_ready
+      until: pg_ready.rc == 0
+      retries: 15
+      delay: 3
+      changed_when: false
+
+    - name: Copy schema into postgres container
+      ansible.builtin.command:
+        cmd: docker cp {{ deploy_dest }}/schema.sql party-time-db:/tmp/schema.sql
+      changed_when: true
+
+    - name: Apply database schema
+      ansible.builtin.command:
+        cmd: >-
+          docker exec party-time-db
+          psql -U {{ dbuser_out.stdout | trim | default('myuser', true) }}
+          -d {{ dbname_out.stdout | trim | default('party_time', true) }}
+          -f /tmp/schema.sql
+      register: schema_out
+      changed_when: "'CREATE TABLE' in schema_out.stdout"
+
+- name: Deploy invitee UI to public nginx
+  hosts: tag_nginx
+  become: true
+  tasks:
+    - name: Create invitee UI web root
+      ansible.builtin.file:
+        path: /var/www/invitee-ui
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Sync invitee UI static files
+      ansible.posix.synchronize:
+        src: "{{ party_time_repo }}/invitee_ui/dist/"
+        dest: /var/www/invitee-ui/
+        delete: true
+
+- name: Deploy admin UI to internal nginx
+  hosts: tag_nginx_internal
+  become: true
+  tasks:
+    - name: Create admin UI web root
+      ansible.builtin.file:
+        path: /var/www/admin-ui
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Sync admin UI static files
+      ansible.posix.synchronize:
+        src: "{{ party_time_repo }}/admin_ui/dist/"
+        dest: /var/www/admin-ui/
+        delete: true
