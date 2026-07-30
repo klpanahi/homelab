@@ -94,6 +94,11 @@ variable "nginx_disk_gb" {
   default     = 20
 }
 
+variable "ssh_public_key" {
+  description = "SSH public key injected into the nginx VM (ubuntu user)"
+  type        = string
+}
+
 variable "nginx_ssh_public_key" {
   description = "SSH public key injected into the nginx VM (ubuntu user)"
   type        = string
@@ -113,6 +118,99 @@ variable "nginx_gateway" {
 
 variable "nginx_nameserver" {
   description = "DNS nameserver for the nginx VM"
+  type        = string
+  default     = "8.8.8.8"
+}
+
+# ── docker VM ─────────────────────────────────────────────────────────────────
+
+variable "docker_vm_id" {
+  description = "Proxmox VM ID for the docker VM"
+  type        = number
+  default     = 202
+}
+
+variable "docker_cpu_cores" {
+  description = "Number of vCPU cores for the docker VM"
+  type        = number
+  default     = 2
+}
+
+variable "docker_memory_mb" {
+  description = "RAM in MB for the docker VM"
+  type        = number
+  default     = 2048
+}
+
+variable "docker_disk_gb" {
+  description = "Root disk size in GB for the docker VM"
+  type        = number
+  default     = 20
+}
+
+variable "docker_ssh_public_key" {
+  description = "SSH public key injected into the docker VM (ubuntu user)"
+  type        = string
+}
+
+variable "docker_static_ip" {
+  description = "Static IP with CIDR for the docker VM, e.g. 192.168.68.102/24. Leave empty for DHCP."
+  type        = string
+  default     = ""
+}
+
+variable "docker_gateway" {
+  description = "Gateway for docker VM static IP (required when docker_static_ip is set)"
+  type        = string
+  default     = ""
+}
+
+variable "docker_nameserver" {
+  description = "DNS nameserver for the docker VM"
+  type        = string
+  default     = "8.8.8.8"
+}
+
+# ── nginx-internal VM ────────────────────────────────────────────────────────
+
+variable "nginx_internal_vm_id" {
+  description = "Proxmox VM ID for the nginx-internal VM"
+  type        = number
+  default     = 203
+}
+
+variable "nginx_internal_cpu_cores" {
+  description = "Number of vCPU cores for the nginx-internal VM"
+  type        = number
+  default     = 1
+}
+
+variable "nginx_internal_memory_mb" {
+  description = "RAM in MB for the nginx-internal VM"
+  type        = number
+  default     = 1024
+}
+
+variable "nginx_internal_disk_gb" {
+  description = "Root disk size in GB for the nginx-internal VM"
+  type        = number
+  default     = 20
+}
+
+variable "nginx_internal_static_ip" {
+  description = "Static IP with CIDR for the nginx-internal VM, e.g. 192.168.68.103/24. Leave empty for DHCP."
+  type        = string
+  default     = ""
+}
+
+variable "nginx_internal_gateway" {
+  description = "Gateway for nginx-internal VM static IP (required when nginx_internal_static_ip is set)"
+  type        = string
+  default     = ""
+}
+
+variable "nginx_internal_nameserver" {
+  description = "DNS nameserver for the nginx-internal VM"
   type        = string
   default     = "8.8.8.8"
 }

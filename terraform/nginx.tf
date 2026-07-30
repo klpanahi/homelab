@@ -29,6 +29,7 @@ resource "proxmox_virtual_environment_file" "nginx_cloud_init" {
   source_raw {
     data      = <<-EOF
       #cloud-config
+      hostname: nginx-cloudflared
       package_update: true
       users:
         - name: ubuntu
@@ -87,14 +88,14 @@ resource "proxmox_virtual_environment_file" "nginx_network_config" {
 }
 
 resource "proxmox_virtual_environment_vm" "nginx" {
-  name      = "nginx"
+  name      = "nginx-cloudflared"
   node_name = var.proxmox_node
   vm_id     = var.nginx_vm_id
 
   # Tags drive the Ansible dynamic inventory: the community.proxmox.proxmox
   # plugin reads these into proxmox_tags_parsed and keys groups off them
   # (the "nginx" tag becomes the tag_nginx group that site.yml targets).
-  tags = ["ansible", "nginx"]
+  tags = ["ansible", "nginx", "cloudflared"]
 
   machine = "q35"
   on_boot = true

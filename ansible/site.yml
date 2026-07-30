@@ -2,10 +2,54 @@
 # Top-level playbook. Run with: ansible-playbook site.yml
 #
 # Hosts are discovered via the Proxmox dynamic inventory and grouped by tag.
-# tag_nginx == VMs tagged "nginx" in Proxmox (see terraform/nginx.tf).
+# tag_ansible    == all Proxmox-managed VMs (every VM carries the "ansible" tag).
+# tag_nginx      == VMs tagged "nginx" in Proxmox (see terraform/nginx.tf).
+# tag_cloudflared == VMs that should run a Cloudflare tunnel (subset of nginx VMs
+#                   that are externally exposed; internal-only nginx VMs omit this tag).
+
+- name: Common setup for all managed VMs
+  hosts: tag_ansible
+  become: true
+  tasks:
+    - name: Install avahi-daemon and libnss-mdns for mDNS hostname resolution
+      ansible.builtin.apt:
+        name:
+          - avahi-daemon
+          - libnss-mdns
+        state: present
+        update_cache: true
+
+    - name: Enable and start avahi-daemon
+      ansible.builtin.systemd:
+        name: avahi-daemon
+        enabled: true
+        state: started
 
 - name: Configure nginx web servers
   hosts: tag_nginx
+  become: true
+  pre_tasks:
+    - name: Remove stale default nginx vhost
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default.conf
+        state: absent
+  roles:
+    - geerlingguy.nginx
+
+- name: Configure Cloudflare tunnels
+  hosts: tag_cloudflared
+  become: true
+  roles:
+    - cloudflared
+
+- name: Configure docker hosts
+  hosts: tag_docker
+  become: true
+  roles:
+    - geerlingguy.docker
+
+- name: Configure internal nginx hosts
+  hosts: tag_nginx_internal
   become: true
   roles:
     - geerlingguy.nginx
