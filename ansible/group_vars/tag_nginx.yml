@@ -18,7 +18,20 @@ nginx_vhosts:
     index: "index.html"
     filename: "party-time-public.conf"
     extra_parameters: |
+      # The SPA route /invite/:id and the API route GET /invite/:id are the
+      # same URL, so path alone cannot tell them apart. Split on Accept:
+      # a browser navigation asks for text/html and must receive the React
+      # bundle, while the SPA's fetch() sends */* and must reach the backend.
+      # Without this, opening an invite link renders raw JSON.
       location ~ ^/(invite|event|invites) {
+          if ($http_accept ~* "text/html") {
+              rewrite ^ /index.html last;
+          }
+          # This URL has two representations that differ only by Accept, so
+          # caches must key on it. Without Vary the browser reuses the HTML
+          # it cached during navigation to answer the SPA's own fetch, which
+          # then fails parsing JSON with "Unexpected token '<'".
+          add_header Vary Accept always;
           proxy_pass         http://public_backend;
           proxy_set_header   Host              $host;
           proxy_set_header   X-Real-IP         $remote_addr;
