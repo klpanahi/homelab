@@ -27,16 +27,29 @@ nginx_vhosts:
           if ($http_accept ~* "text/html") {
               rewrite ^ /index.html last;
           }
-          # This URL has two representations that differ only by Accept, so
-          # caches must key on it. Without Vary the browser reuses the HTML
-          # it cached during navigation to answer the SPA's own fetch, which
-          # then fails parsing JSON with "Unexpected token '<'".
+          # This URL has two representations that differ only by Accept.
+          # Vary tells a spec-compliant cache to key on it, but a response
+          # already cached before this line existed has no Vary key and
+          # keeps being replayed for every Accept value regardless — that
+          # already happened here once and cost hours to track down. no-store
+          # makes the whole class of bug impossible instead of relying on
+          # every cache in the path (browser, Cloudflare) respecting Vary.
+          add_header Cache-Control "no-store" always;
           add_header Vary Accept always;
           proxy_pass         http://public_backend;
           proxy_set_header   Host              $host;
           proxy_set_header   X-Real-IP         $remote_addr;
           proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
           proxy_set_header   X-Forwarded-Proto $scheme;
+      }
+      # rewrite ... last above re-enters location matching on /index.html, a
+      # fresh internal request — headers set in the location above do not
+      # carry over, so the HTML side of the same ambiguous URL needs its own
+      # no-store here. Scoped to the exact filename so the plain homepage
+      # load and the hashed JS/CSS bundles (served via location /) keep their
+      # normal caching.
+      location = /index.html {
+          add_header Cache-Control "no-store" always;
       }
       location / {
           try_files $uri $uri/ /index.html;
