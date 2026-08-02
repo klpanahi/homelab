@@ -9,8 +9,26 @@ terraform/crash.log
 
 # Ansible
 ansible/.vault_pass
+ansible/.vault_pass*
 ansible/*.retry
 ansible/group_vars/all/vault.yml
+ansible/collections/
+ansible/roles/
+
+# Credentials — never commit. Only *.example files are tracked.
+*.tfvars
+!*.tfvars.example
+vault.yml
+!vault.yml.example
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Local tooling
+**/.claude/settings.local.json
 
 # General
 .DS_Store

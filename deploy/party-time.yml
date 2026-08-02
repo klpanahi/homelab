@@ -1,0 +1,191 @@
+---
+# Deploy party-time application to the homelab.
+#
+# Prerequisites:
+#   1. All VMs provisioned and site.yml has been run (nginx, Docker installed).
+#   2. ./build.sh run in the party-time repo. It cross-builds the backend image
+#      for linux/amd64 and exports it to dist/party-time-backend-amd64.tar.gz
+#      along with the built UIs.
+#   3. /opt/party-time/.env.prod exists on the docker VM — create it from
+#      party-time/sample.local.env and fill in production values (DB creds, Twilio, etc.).
+#
+# The image is built on the control machine and shipped, not compiled on the VM.
+# The docker VM has 2 vCPU / 2 GB / no swap shared with Postgres, where a Go
+# build took minutes; shipping the image takes seconds. The backend is
+# CGO_ENABLED=0, so cross-compiling arm64 -> amd64 costs nothing.
+#
+# Usage:
+#   ansible-playbook deploy/party-time.yml \
+#     -e party_time_repo=/path/to/party-time
+
+- name: Deploy party-time backend
+  hosts: tag_docker
+  become: true
+  vars:
+    deploy_dest: /opt/party-time
+    backend_image_tar: "{{ party_time_repo }}/dist/party-time-backend-amd64.tar.gz"
+  tasks:
+    - name: Create deploy directory
+      ansible.builtin.file:
+        path: "{{ deploy_dest }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
+    - name: Check .env.prod exists on docker VM
+      ansible.builtin.stat:
+        path: "{{ deploy_dest }}/.env.prod"
+      register: env_prod_stat
+
+    - name: Fail if .env.prod is missing
+      ansible.builtin.fail:
+        msg: >
+          {{ deploy_dest }}/.env.prod not found on {{ inventory_hostname }}.
+          Create it from party-time/sample.local.env and fill in production values.
+      when: not env_prod_stat.stat.exists
+
+    - name: Sync docker-compose.prod.yml
+      ansible.posix.synchronize:
+        src: "{{ party_time_repo }}/docker-compose.prod.yml"
+        dest: "{{ deploy_dest }}/docker-compose.prod.yml"
+
+    # The backend image is cross-built for linux/amd64 by build.sh on the control
+    # machine and shipped here as a tarball. The VM never compiles anything: it
+    # has 2 vCPU / 2 GB / no swap and shares them with Postgres, so an in-guest
+    # Go build took minutes and drove load average past 40.
+    - name: Check backend image tarball exists
+      ansible.builtin.stat:
+        path: "{{ backend_image_tar }}"
+      delegate_to: localhost
+      become: false
+      register: image_tar_stat
+
+    - name: Fail if backend image tarball is missing
+      ansible.builtin.fail:
+        msg: >
+          {{ backend_image_tar }} not found.
+          Run ./build.sh in the party-time repo first — it cross-builds the
+          linux/amd64 image and exports it to dist/.
+      when: not image_tar_stat.stat.exists
+
+    - name: Ship backend image tarball
+      ansible.posix.synchronize:
+        src: "{{ backend_image_tar }}"
+        dest: "{{ deploy_dest }}/party-time-backend-amd64.tar.gz"
+      register: image_shipped
+
+    - name: Load backend image into Docker
+      ansible.builtin.shell:
+        cmd: gunzip -c {{ deploy_dest }}/party-time-backend-amd64.tar.gz | docker load
+      register: image_load
+      changed_when: "'Loaded image' in image_load.stdout"
+
+    - name: Verify loaded image is amd64
+      ansible.builtin.command:
+        cmd: docker image inspect party-time-backend:latest --format '{{ "{{" }}.Architecture{{ "}}" }}'
+      register: image_arch
+      changed_when: false
+      failed_when: image_arch.stdout | trim != 'amd64'
+
+    # Left over from when the image was built on the VM. The compose file still
+    # carries a build: stanza, so stale source here could silently be used if a
+    # build were ever triggered again.
+    - name: Remove stale backend source from previous deploys
+      ansible.builtin.file:
+        path: "{{ deploy_dest }}/public_backend"
+        state: absent
+
+    - name: Remove schema.sql if Docker created it as a directory
+      ansible.builtin.file:
+        path: "{{ deploy_dest }}/schema.sql"
+        state: absent
+
+    - name: Sync schema.sql
+      ansible.posix.synchronize:
+        src: "{{ party_time_repo }}/schema.sql"
+        dest: "{{ deploy_dest }}/schema.sql"
+
+    # build: never — the image is loaded above, already built. If it were ever
+    # missing, compose fails loudly here rather than quietly attempting an
+    # in-guest build against a source tree that is no longer shipped.
+    - name: Start Docker stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ deploy_dest }}"
+        files:
+          - docker-compose.prod.yml
+        build: never
+        recreate: always
+        state: present
+
+    - name: Read DBUSER from .env.prod
+      ansible.builtin.shell:
+        cmd: grep '^DBUSER=' {{ deploy_dest }}/.env.prod | cut -d= -f2-
+      register: dbuser_out
+      changed_when: false
+
+    - name: Read DBNAME from .env.prod
+      ansible.builtin.shell:
+        cmd: grep '^DBNAME=' {{ deploy_dest }}/.env.prod | cut -d= -f2-
+      register: dbname_out
+      changed_when: false
+
+    - name: Wait for postgres to be ready
+      ansible.builtin.command:
+        cmd: docker exec party-time-db pg_isready -U "{{ dbuser_out.stdout }}"
+      register: pg_ready
+      until: pg_ready.rc == 0
+      retries: 15
+      delay: 3
+      changed_when: false
+
+    - name: Copy schema into postgres container
+      ansible.builtin.command:
+        cmd: docker cp {{ deploy_dest }}/schema.sql party-time-db:/tmp/schema.sql
+      changed_when: true
+
+    - name: Apply database schema
+      ansible.builtin.command:
+        cmd: >-
+          docker exec party-time-db
+          psql -U {{ dbuser_out.stdout | trim | default('myuser', true) }}
+          -d {{ dbname_out.stdout | trim | default('party_time', true) }}
+          -f /tmp/schema.sql
+      register: schema_out
+      changed_when: "'CREATE TABLE' in schema_out.stdout"
+
+- name: Deploy invitee UI to public nginx
+  hosts: tag_nginx
+  become: true
+  tasks:
+    - name: Create invitee UI web root
+      ansible.builtin.file:
+        path: /var/www/invitee-ui
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Sync invitee UI static files
+      ansible.posix.synchronize:
+        src: "{{ party_time_repo }}/invitee_ui/dist/"
+        dest: /var/www/invitee-ui/
+        delete: true
+
+- name: Deploy admin UI to internal nginx
+  hosts: tag_nginx_internal
+  become: true
+  tasks:
+    - name: Create admin UI web root
+      ansible.builtin.file:
+        path: /var/www/admin-ui
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Sync admin UI static files
+      ansible.posix.synchronize:
+        src: "{{ party_time_repo }}/admin_ui/dist/"
+        dest: /var/www/admin-ui/
+        delete: true

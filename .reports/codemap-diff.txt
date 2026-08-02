@@ -1,24 +1,53 @@
-Codemap scan: 2026-06-10
-Status: INITIAL GENERATION (no prior codemaps)
+Codemap scan: 2026-06-23
+Status: UPDATE (prior generation 2026-06-10)
 
-Files scanned: 7
+Files scanned: 14
   terraform/main.tf
   terraform/homelab2.tf
+  terraform/nginx.tf            (NEW)
   terraform/variables.tf
   terraform/terraform.tfvars.example
-  terraform/.terraform.lock.hcl
   README.md
   agent.md
+  ansible/ansible.cfg           (NEW)
+  ansible/requirements.yml      (NEW)
+  ansible/inventory/proxmox.yml (NEW)
+  ansible/site.yml              (NEW)
+  ansible/group_vars/all/vars.yml      (NEW)
+  ansible/group_vars/tag_nginx.yml     (NEW)
+  ansible/README.md             (NEW)
 
 Codemaps written:
-  docs/CODEMAPS/architecture.md  — system overview, networking, backup, provisioning flow
-  docs/CODEMAPS/infrastructure.md — Terraform resources, variables, provider config
-  docs/CODEMAPS/dependencies.md  — providers, external services, runtime requirements
+  docs/CODEMAPS/architecture.md   — added Ansible config layer + nginx VM, updated provisioning flow
+  docs/CODEMAPS/infrastructure.md — added nginx.tf resources + nginx variables
+  docs/CODEMAPS/ansible.md        — NEW: dynamic inventory, tag groups, playbook, role
+  docs/CODEMAPS/dependencies.md   — Ansible collection/role now wired up (was "planned")
 
-Architecture notes:
-  - Single active Terraform node (homelab2); second node not yet in IaC
-  - HAOS provisioned via null_resource + SSH workaround (bpg/proxmox xz limitation)
-  - ansible/ and compose/ directories planned but not yet present in repo
+Changes since last scan:
+  ADDED  terraform/nginx.tf — Ubuntu 24.04 nginx VM (VM ID 201) via bpg VM
+         resource; cloud-init bootstraps ubuntu user + qemu-guest-agent only;
+         VM tagged ["ansible","nginx"] for inventory grouping.
+  ADDED  nginx_* variables in variables.tf (vm_id, cpu, memory, disk, ssh key,
+         static_ip/gateway/nameserver).
+  ADDED  ansible/ layer — Proxmox dynamic inventory (community.proxmox.proxmox)
+         grouping by tag; geerlingguy.nginx role; vault for token secret.
+  CHANGED cloud-init: nginx removed (now Ansible-owned); guest agent retained.
+
+New dependencies:
+  - community.proxmox (Ansible collection) — dynamic inventory plugin
+  - geerlingguy.nginx (Ansible Galaxy role)
+  - Ubuntu cloud-images (nginx VM base image)
+
+Architecture changes:
+  - New configuration layer: Ansible configures VMs post-provision over LAN SSH
+  - New running VM: nginx (201) joining homeassistant (200) on node homelab2
+  - Terraform/Ansible split: TF owns VM lifecycle + tags; Ansible owns in-guest config
+
+Notes:
+  - Scope grew >30% (new Ansible layer + nginx VM); changes are additive, no
+    curated content removed.
+  - Inventory token secret read via ansible.builtin.unvault lookup on
+    group_vars/all/vault.yml (inventory loads before group_vars).
 
 Staleness warnings:
-  - None (initial generation)
+  - None (all codemaps regenerated 2026-06-23).

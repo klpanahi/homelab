@@ -1,0 +1,9 @@
+# Template for the vaulted secrets file. Create the real, encrypted, gitignored
+# file with:  ansible-vault create group_vars/all/vault.yml
+#
+# proxmox_token_secret is the SECRET half of the Proxmox API token (the part
+# after '=' in terraform.tfvars' proxmox_api_token). The inventory reads it via
+# an ansible.builtin.unvault lookup at parse time (inventory plugins load before
+# group_vars, so it can't be referenced as a plain group var). Any future
+# play-level secrets can live here too.
+proxmox_token_secret: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"

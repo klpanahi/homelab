@@ -1,0 +1,27 @@
+---
+# Upgrade all packages on every managed VM.
+# Run with: ansible-playbook update.yml
+#
+# Uses serial: 1 so VMs update one at a time — avoids taking everything offline
+# simultaneously if a service restart is triggered mid-upgrade.
+
+- name: Update packages on all managed VMs
+  hosts: tag_ansible
+  become: true
+  serial: 1
+  tasks:
+    - name: Upgrade all packages
+      ansible.builtin.apt:
+        upgrade: dist
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Remove unused packages
+      ansible.builtin.apt:
+        autoremove: true
+
+    - name: Reboot if required
+      ansible.builtin.reboot:
+        msg: "Rebooting after package upgrade"
+        reboot_timeout: 300
+      when: ansible_facts.get('ansible_reboot_required', false)

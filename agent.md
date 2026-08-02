@@ -10,7 +10,8 @@ Architecture, infrastructure, and dependency details live in token-lean codemaps
 
 - [`docs/CODEMAPS/architecture.md`](docs/CODEMAPS/architecture.md) — system overview, networking, backup strategy, provisioning flow
 - [`docs/CODEMAPS/infrastructure.md`](docs/CODEMAPS/infrastructure.md) — Terraform resources, variables, provider config
-- [`docs/CODEMAPS/dependencies.md`](docs/CODEMAPS/dependencies.md) — providers, external services, runtime requirements
+- [`docs/CODEMAPS/ansible.md`](docs/CODEMAPS/ansible.md) — dynamic inventory, tag groups, playbook, roles
+- [`docs/CODEMAPS/dependencies.md`](docs/CODEMAPS/dependencies.md) — providers, collections, external services, runtime requirements
 
 **After making code changes, update the codemaps** by running `/ecc:update-codemaps` in Claude Code.
 
@@ -57,7 +58,7 @@ The QEMU guest agent must be installed (`apt install qemu-guest-agent && systemc
 ## IaC Conventions
 
 - **Terraform**: provisions VMs; VM identity tracked by Proxmox VM ID, not IP
-- **Ansible**: configures VMs post-provision; uses `community.general.proxmox` dynamic inventory (no static IP files); secrets in Ansible Vault, never plaintext
+- **Ansible**: configures VMs post-provision; uses the `community.proxmox.proxmox` dynamic inventory (no static IP files), grouping VMs by Proxmox tags; prefers open-source Galaxy roles over hand-written tasks; secrets in Ansible Vault, never plaintext. (The older `community.general.proxmox` plugin is deprecated.)
 - Provisioning order: `terraform apply` → VM boots → guest agent reports IP → `ansible-playbook site.yml` → PBS picks up on next schedule
 
 ---

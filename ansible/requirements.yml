@@ -1,0 +1,18 @@
+# Install with: ansible-galaxy install -r requirements.yml
+#
+# Collections and roles are installed into ./collections and ./roles
+# (see collections_path / roles_path in ansible.cfg), both gitignored.
+collections:
+  # Proxmox dynamic inventory plugin. The old community.general.proxmox plugin
+  # is deprecated and was moved into this dedicated collection.
+  - name: community.proxmox
+  # Docker Compose v2 module used by deploy/party-time.yml.
+  - name: community.docker
+  # synchronize module (rsync wrapper) used by deploy/party-time.yml.
+  - name: ansible.posix
+
+roles:
+  # Open-source nginx role — installs and configures nginx, manages vhosts.
+  - name: geerlingguy.nginx
+  # Docker role — installs Docker CE and adds users to the docker group.
+  - name: geerlingguy.docker

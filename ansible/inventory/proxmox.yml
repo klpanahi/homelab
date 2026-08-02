@@ -1,0 +1,48 @@
+# Proxmox dynamic inventory.
+#
+# VMs are discovered from the Proxmox API and grouped by their Proxmox tags
+# (set in Terraform). The nginx VM is tagged "nginx", so it lands in the
+# tag_nginx group that site.yml targets. ansible_host is resolved from the IP
+# the QEMU guest agent reports — no static IP files to maintain.
+#
+# Credentials reuse the same Proxmox API token Terraform uses (see
+# terraform.tfvars' proxmox_api_token — currently root@pam!terraform). The user
+# and token_id below MUST match that token's user@realm and token id, or the API
+# returns 401 "no such user".
+#
+# The token secret is read from the vaulted group_vars/all/vault.yml via an
+# ansible.builtin.unvault lookup (decrypted at parse time via .vault_pass).
+# A plain "{{ proxmox_token_secret }}" group var would be undefined here because
+# inventory plugins are evaluated BEFORE group_vars are loaded; the lookup reads
+# and decrypts the file directly instead.
+plugin: community.proxmox.proxmox
+
+url: https://192.168.68.65:8006
+user: root@pam
+token_id: terraform
+token_secret: "{{ (lookup('ansible.builtin.unvault', 'group_vars/all/vault.yml') | ansible.builtin.from_yaml).proxmox_token_secret }}"
+validate_certs: false
+
+# want_facts pulls per-VM config + guest-agent data so proxmox_tags_parsed and
+# proxmox_agent_interfaces are available below.
+want_facts: true
+
+keyed_groups:
+  # "nginx" -> tag_nginx, "ansible" -> tag_ansible
+  - key: proxmox_tags_parsed
+    prefix: tag
+    separator: "_"
+
+compose:
+  # First non-loopback IPv4 the guest agent reports becomes the SSH target.
+  # proxmox_agent_interfaces entries look like:
+  #   {name: ens18, mac-address: ..., ip-addresses: ["192.168.68.101/24", "fe80::.../64"]}
+  # so: drop the loopback iface, flatten the "ip/prefix" strings, drop IPv6
+  # (contains ':') and 127.x, then strip the /prefix.
+  ansible_host: >-
+    proxmox_agent_interfaces | default([])
+    | rejectattr('name', 'equalto', 'lo')
+    | map(attribute='ip-addresses') | flatten
+    | reject('search', ':')
+    | reject('search', '^127\.')
+    | map('regex_replace', '/.*$', '') | first

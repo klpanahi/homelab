@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-10 | Files scanned: 2 | Token estimate: ~200 -->
+<!-- Generated: 2026-06-23 | Files scanned: 4 | Token estimate: ~320 -->
 
 # Dependencies
 
@@ -6,26 +6,32 @@
 
 | Provider | Version | Purpose |
 |---|---|---|
-| `bpg/proxmox` | `~> 0.78` (locked: 0.109.0) | Proxmox VE API — provider auth and future VM resources |
+| `bpg/proxmox` | `~> 0.78` (locked: 0.109.0) | Proxmox VE API — provider auth, nginx VM + cloud-init files |
 | `hashicorp/null` | `~> 3.0` (locked: 3.3.0) | `null_resource` for SSH-based HAOS provisioning |
+
+## Ansible Collections & Roles (requirements.yml)
+
+| Item | Type | Purpose |
+|---|---|---|
+| `community.proxmox` | collection | `proxmox` dynamic inventory plugin (replaces deprecated `community.general.proxmox`) |
+| `geerlingguy.nginx` | role | installs + configures nginx (vhosts) on `tag_nginx` hosts |
 
 ## External Services
 
 | Service | Role |
 |---|---|
-| Proxmox VE (homelab2, 192.168.68.65) | Hypervisor; Terraform target |
+| Proxmox VE (homelab2, 192.168.68.65) | Hypervisor; Terraform target + Ansible inventory source |
 | GitHub (home-assistant/operating-system) | HAOS image download source |
-| ZeroTier | Mesh VPN for laptop-to-VM and inter-VM access |
-| Cloudflare Tunnel | Public ingress for exposed services (no open ports) |
+| Ubuntu cloud-images | nginx VM base image (24.04 noble standard) |
+| ZeroTier | Mesh VPN for laptop-to-VM access (planned on VMs) |
+| Cloudflare Tunnel | Public ingress, no open ports (planned) |
 | TP-Link Deco | Home router; MAC-based DHCP reservations for stable IPs |
 
 ## Runtime Requirements
 
 - Terraform >= 1.6
-- SSH agent loaded with key for `root@<proxmox_ssh_host>` before `terraform apply`
-- Proxmox API token with Administrator role on `/`
-
-## Planned (not yet wired up)
-
-- Ansible `community.general.proxmox` dynamic inventory plugin
-- Ansible Vault for secrets (Proxmox tokens, ZeroTier, Cloudflare)
+- Ansible (core 2.21+); `ansible-galaxy install -r requirements.yml`
+- SSH agent / key for `root@<proxmox_ssh_host>` before `terraform apply`
+- Proxmox API token with Administrator role on `/` (root@pam!terraform)
+- Vault password file `ansible/.vault_pass` for the inventory token secret
+- VM SSH key (`ubuntu` user) for Ansible to reach guests over the LAN
