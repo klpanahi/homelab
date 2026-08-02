@@ -25,6 +25,10 @@
         enabled: true
         state: started
 
+# geerlingguy.nginx here is install/baseline configuration only (package
+# install, service enablement, removing the stale default vhost). Any
+# application-specific vhost — e.g. party-time's — is owned by that
+# application's own repo and applied by its own deploy playbook, not here.
 - name: Configure nginx web servers
   hosts: tag_nginx
   become: true
@@ -48,6 +52,8 @@
   roles:
     - geerlingguy.docker
 
+# Same install/baseline-only role as the tag_nginx play above — party-time's
+# admin vhost is applied separately by party-time's deploy/party-time.yml.
 - name: Configure internal nginx hosts
   hosts: tag_nginx_internal
   become: true

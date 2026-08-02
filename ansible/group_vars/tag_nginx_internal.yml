@@ -5,25 +5,8 @@
 
 nginx_remove_default_vhost: true
 
-nginx_upstreams:
-  - name: admin_backend
-    servers:
-      - "docker.local:8081"
-
-nginx_vhosts:
-  - listen: "80 default_server"
-    server_name: "_"
-    root: "/var/www/admin-ui"
-    index: "index.html"
-    filename: "party-time-admin.conf"
-    extra_parameters: |
-      location /admin {
-          proxy_pass         http://admin_backend;
-          proxy_set_header   Host              $host;
-          proxy_set_header   X-Real-IP         $remote_addr;
-          proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-          proxy_set_header   X-Forwarded-Proto $scheme;
-      }
-      location / {
-          try_files $uri $uri/ /index.html;
-      }
+# party-time's vhost, upstream (admin_backend -> docker.local:8081), and
+# static root (/var/www/admin-ui) now live in the party-time repo
+# (deploy/nginx/admin.conf) and are applied by that repo's
+# deploy/party-time.yml. homelab only installs and baseline-configures nginx
+# here (see site.yml) — it no longer defines any party-time-specific vhost.
