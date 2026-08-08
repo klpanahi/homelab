@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+# Managed by Ansible (backup role). Local edits will be overwritten.
+#
+# Pulls a full Home Assistant backup, copies it off to this host, then
+# deletes HA's own copy so its disk does not fill up with backups we have
+# already archived here.
+#
+# IMPORTANT: this talks to HA Core's native `backup` integration over its
+# WebSocket API (create/list/delete) and REST (download). It deliberately
+# does NOT use the Supervisor proxy under /api/hassio/*: that endpoint
+# rejects long-lived access tokens with a 401 no matter how privileged the
+# token's user is (verified empirically against a live HAOS instance --
+# /api/config/core/check_config, an admin-only endpoint, returned 200 with
+# the same token that got 401 from every /api/hassio/* route). The
+# `backup` integration's WebSocket API is the only path that has been
+# proven to work for unattended automation.
+#
+# Observed WS message shapes (HA 2026.7.4, HAOS):
+#   backup/agents/info -> {"agents": [{"agent_id": "hassio.local", "name": "local"}]}
+#   backup/generate    -> {"backup_job_id": "<uuid>"} (fire-and-forget; does
+#                          NOT block until the backup is finished)
+#   backup/subscribe_events -> streams {"manager_state": ..., "stage": ...,
+#                          "state": ...} events; completion is
+#                          manager_state == "create_backup", state ==
+#                          "completed", followed by manager_state == "idle"
+#   backup/info        -> {"backups": [{"backup_id": ..., "name": ...}, ...]}
+#                          (used here to resolve our backup's ID by name,
+#                          and as a fallback/poll if the event stream is
+#                          quiet)
+#   backup/delete      -> {"agent_errors": {}} on success
+#   GET /api/backup/download/<backup_id>?agent_id=<agent_id> -> raw tar
+#     (agent_id query param is required; without it HA 400s)
+
+import asyncio
+import datetime
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+
+import websockets
+
+HA_URL = "{{ backup_ha_url }}"
+HA_WS_URL = HA_URL.replace("https://", "wss://").replace("http://", "ws://") + "/api/websocket"
+HA_TOKEN = "{{ backup_ha_token }}"
+AGENT_ID = "{{ backup_ha_agent_id }}"
+BACKUP_DIR = "{{ backup_root }}/homeassistant"
+RETENTION_DAYS = {{ backup_ha_retention_days }}
+CREATE_TIMEOUT = {{ backup_ha_create_timeout }}
+LAST_SUCCESS_FILE = "{{ backup_root }}/LAST_SUCCESS_homeassistant"
+
+TIMESTAMP = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d-%H%M%S")
+BACKUP_NAME = f"ansible-backup-{TIMESTAMP}"
+OUT_PATH = os.path.join(BACKUP_DIR, f"ha-{TIMESTAMP}.tar")
+PART_PATH = OUT_PATH + ".part"
+
+
+def fail(category, message):
+    """Print a clearly-categorized error to stderr and exit non-zero.
+
+    A partial .part file, if any, is removed before exiting so a truncated
+    download can never masquerade as a good backup.
+    """
+    if os.path.exists(PART_PATH):
+        os.remove(PART_PATH)
+    print(f"ERROR [{category}]: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+async def ws_call(ws, msg_id, msg_type, extra=None):
+    """Send a WS command and wait for its matching result frame.
+
+    Frames with a different id (subscription events, out-of-order acks)
+    are drained and ignored -- HA's WS protocol interleaves event pushes
+    with command results on the same connection.
+    """
+    payload = {"id": msg_id, "type": msg_type}
+    if extra:
+        payload.update(extra)
+    await ws.send(json.dumps(payload))
+    while True:
+        raw = await ws.recv()
+        msg = json.loads(raw)
+        if msg.get("id") == msg_id and msg.get("type") == "result":
+            return msg
+
+
+async def create_backup():
+    """Create a full HA backup over WS and return its backup_id once done.
+
+    Raises RuntimeError with a descriptive message on any failure; the
+    caller is responsible for turning that into a categorized fail().
+    """
+    async with websockets.connect(HA_WS_URL, max_size=None, open_timeout=30) as ws:
+        first = json.loads(await ws.recv())
+        if first.get("type") != "auth_required":
+            raise RuntimeError(f"unexpected handshake frame: {first}")
+
+        await ws.send(json.dumps({"type": "auth", "access_token": HA_TOKEN}))
+        auth_resp = json.loads(await ws.recv())
+        if auth_resp.get("type") != "auth_ok":
+            raise PermissionError(f"HA rejected the token: {auth_resp}")
+
+        msg_id = 1
+
+        def next_id():
+            nonlocal msg_id
+            msg_id += 1
+            return msg_id
+
+        # Subscribe first so we don't miss early progress events.
+        await ws_call(ws, next_id(), "backup/subscribe_events")
+
+        gen = await ws_call(
+            ws,
+            next_id(),
+            "backup/generate",
+            {
+                "agent_ids": [AGENT_ID],
+                "include_addons": [],
+                "include_all_addons": False,
+                "include_database": True,
+                "include_folders": [],
+                "include_homeassistant": True,
+                "name": BACKUP_NAME,
+                "password": None,
+            },
+        )
+        if not gen.get("success"):
+            raise RuntimeError(f"backup/generate failed: {gen.get('error')}")
+
+        deadline = time.monotonic() + CREATE_TIMEOUT
+        completed = False
+        while time.monotonic() < deadline:
+            remaining = deadline - time.monotonic()
+            try:
+                raw = await asyncio.wait_for(ws.recv(), timeout=min(15, remaining))
+            except asyncio.TimeoutError:
+                # No event in a while -- fall back to polling backup/info
+                # for a backup matching our name, in case we missed the
+                # completion event.
+                info = await ws_call(ws, next_id(), "backup/info")
+                for b in info.get("result", {}).get("backups", []):
+                    if b.get("name") == BACKUP_NAME:
+                        return b["backup_id"]
+                continue
+
+            evt = json.loads(raw)
+            event = evt.get("event", {})
+            if event.get("state") == "completed":
+                completed = True
+            elif event.get("manager_state") == "idle" and completed:
+                break
+
+        # Resolve the backup_id by name regardless of how we detected
+        # completion, so we don't depend on backup/generate's return value
+        # (it only gives a backup_job_id, not the final backup_id).
+        info = await ws_call(ws, next_id(), "backup/info")
+        for b in info.get("result", {}).get("backups", []):
+            if b.get("name") == BACKUP_NAME:
+                return b["backup_id"]
+
+        raise TimeoutError(
+            f"backup did not complete within {CREATE_TIMEOUT}s "
+            f"(or completed but no backup named '{BACKUP_NAME}' was found)"
+        )
+
+
+async def delete_backup(backup_id):
+    async with websockets.connect(HA_WS_URL, max_size=None, open_timeout=30) as ws:
+        await ws.recv()  # auth_required
+        await ws.send(json.dumps({"type": "auth", "access_token": HA_TOKEN}))
+        auth_resp = json.loads(await ws.recv())
+        if auth_resp.get("type") != "auth_ok":
+            raise PermissionError(f"HA rejected the token on delete: {auth_resp}")
+
+        resp = await ws_call(ws, 1, "backup/delete", {"backup_id": backup_id})
+        if not resp.get("success"):
+            raise RuntimeError(f"backup/delete failed: {resp.get('error')}")
+
+
+def download_backup(backup_id):
+    url = f"{HA_URL}/api/backup/download/{backup_id}?agent_id={AGENT_ID}"
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {HA_TOKEN}"})
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp, open(PART_PATH, "wb") as f:
+            while True:
+                chunk = resp.read(1024 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+    except urllib.error.HTTPError as e:
+        fail("download", f"HTTP {e.code} downloading backup {backup_id}: {e.read()[:500]}")
+    except urllib.error.URLError as e:
+        fail("download", f"could not reach {HA_URL} to download backup {backup_id}: {e}")
+
+
+def main():
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+
+    print(f"Requesting full HA backup ({BACKUP_NAME}) via {HA_WS_URL} ...")
+    try:
+        backup_id = asyncio.run(create_backup())
+    except PermissionError as e:
+        fail("auth", str(e))
+        return
+    except (TimeoutError, RuntimeError) as e:
+        fail("create", str(e))
+        return
+    except OSError as e:
+        fail("create", f"could not reach {HA_WS_URL}: {e}")
+        return
+
+    print(f"Backup created (backup_id={backup_id}), downloading ...")
+    download_backup(backup_id)
+
+    if not os.path.exists(PART_PATH) or os.path.getsize(PART_PATH) == 0:
+        fail("empty", f"downloaded backup file is missing or empty: {PART_PATH}")
+
+    os.rename(PART_PATH, OUT_PATH)
+    print(f"Saved {OUT_PATH}")
+
+    print(f"Deleting backup {backup_id} from Home Assistant ...")
+    try:
+        asyncio.run(delete_backup(backup_id))
+    except (PermissionError, RuntimeError, OSError) as e:
+        # The local copy is already safe on disk at this point, so a
+        # failure to delete HA's copy is worth reporting loudly but should
+        # not undo the successful backup we already have.
+        print(f"WARNING: failed to delete HA's copy of backup {backup_id}: {e}", file=sys.stderr)
+
+    cutoff = time.time() - RETENTION_DAYS * 86400
+    print(f"Pruning backups older than {RETENTION_DAYS} days ...")
+    for entry in os.listdir(BACKUP_DIR):
+        if not entry.endswith(".tar"):
+            continue
+        path = os.path.join(BACKUP_DIR, entry)
+        if os.path.isfile(path) and os.path.getmtime(path) < cutoff:
+            os.remove(path)
+
+    with open(LAST_SUCCESS_FILE, "w") as f:
+        f.write(datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") + "\n")
+
+    print("Home Assistant backup complete.")
+
+
+if __name__ == "__main__":
+    main()

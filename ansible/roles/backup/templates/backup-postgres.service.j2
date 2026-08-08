@@ -1,0 +1,7 @@
+[Unit]
+Description=Back up party_time Postgres database
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/bin/backup-postgres.sh
