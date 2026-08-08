@@ -1,0 +1,97 @@
+---
+# The dump is produced by pg_dump 17 (it runs inside the postgres:17
+# container), so the client tools here must be 17 too. pg_dump archives are
+# only backward compatible: a NEWER pg_restore reads an older archive, never
+# the reverse -- an older pg_restore rejects the file header outright. Ubuntu
+# 24.04's archive ships postgresql-client-16, whose pg_restore would fail the
+# `pg_restore --list` integrity check in backup-postgres.sh on every single
+# run, turning every backup into a hard failure. Hence PGDG.
+#
+# Same shape as the cloudflared role: signing key to /usr/share/keyrings,
+# then a signed-by apt source.
+- name: Add PostgreSQL (PGDG) signing key
+  ansible.builtin.get_url:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    dest: /usr/share/keyrings/postgresql-pgdg.asc
+    mode: "0644"
+
+- name: Add PGDG apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/postgresql-pgdg.asc] https://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    filename: pgdg
+    state: present
+
+- name: Install backup dependencies
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-websockets
+      - openssh-client
+      - postgresql-client-17
+    state: present
+    update_cache: true
+
+- name: Create backup directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  loop:
+    - "{{ backup_root }}"
+    - "{{ backup_root }}/homeassistant"
+    - "{{ backup_root }}/postgres"
+    - "{{ backup_root }}/postgres/env"
+
+- name: Install backup SSH private key
+  ansible.builtin.copy:
+    content: "{{ vault_backup_ssh_private_key }}"
+    dest: "{{ backup_ssh_key_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Deploy Home Assistant backup script
+  ansible.builtin.template:
+    src: backup-homeassistant.py.j2
+    dest: /usr/local/bin/backup-homeassistant.py
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Deploy Postgres backup script
+  ansible.builtin.template:
+    src: backup-postgres.sh.j2
+    dest: /usr/local/bin/backup-postgres.sh
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Deploy backup systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - backup-homeassistant.service
+    - backup-homeassistant.timer
+    - backup-postgres.service
+    - backup-postgres.timer
+  notify: Reload systemd
+
+- name: Flush handlers so timers see current units
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start backup timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - backup-homeassistant.timer
+    - backup-postgres.timer

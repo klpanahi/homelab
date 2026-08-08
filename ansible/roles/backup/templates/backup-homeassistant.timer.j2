@@ -1,0 +1,10 @@
+[Unit]
+Description=Schedule Home Assistant backup
+
+[Timer]
+OnCalendar={{ backup_ha_oncalendar }}
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

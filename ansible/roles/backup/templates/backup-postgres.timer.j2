@@ -1,0 +1,10 @@
+[Unit]
+Description=Schedule party_time Postgres backup
+
+[Timer]
+OnCalendar={{ backup_pg_oncalendar }}
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

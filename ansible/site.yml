@@ -51,6 +51,22 @@
   become: true
   roles:
     - geerlingguy.docker
+  # roles: run before tasks: in a play, so this lands after geerlingguy.docker
+  # has created the ubuntu user / docker group setup, which is fine.
+  tasks:
+    - name: Install backup VM's SSH public key into ubuntu's authorized_keys
+      ansible.posix.authorized_key:
+        user: ubuntu
+        key: "{{ backup_ssh_public_key }}"
+      # Skipped until the real key is set in group_vars/all/vars.yml, so a
+      # run before the keypair exists can't write a junk authorized_keys entry.
+      when: backup_ssh_public_key | length > 0
+      # WARNING: the ubuntu user is in the docker group, which is
+      # root-equivalent (docker group members can mount the host filesystem
+      # via a container). This key is therefore a root-equivalent credential
+      # on this VM. Restricting it with a forced command= in authorized_keys
+      # (limiting it to just the pg_dump invocation the backup role needs) is
+      # a known follow-up, not yet done.
 
 # Same install/baseline-only role as the tag_nginx play above — party-time's
 # admin vhost is applied separately by party-time's deploy/party-time.yml.
@@ -59,3 +75,12 @@
   become: true
   roles:
     - geerlingguy.nginx
+
+# The backup VM lives on homelab1 — deliberately a different physical
+# machine from the workloads it backs up (docker VM, Home Assistant), so a
+# single host failure can't take out both the data and its backup.
+- name: Configure backup hosts
+  hosts: tag_backup
+  become: true
+  roles:
+    - backup
