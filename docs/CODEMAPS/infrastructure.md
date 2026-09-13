@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-23 | Files scanned: 5 | Token estimate: ~560 -->
+<!-- Generated: 2026-09-13 | Files scanned: 8 | Token estimate: ~680 -->
 
 # Terraform Infrastructure
 
@@ -9,6 +9,9 @@ terraform/
   main.tf                  provider config (proxmox bpg + null)
   homelab2.tf              HAOS VM provisioning (null_resource, SSH remote-exec)
   nginx.tf                 nginx VM (bpg VM resource + cloud-init snippets)
+  nginx-internal.tf        LAN-only nginx VM
+  docker.tf                Docker host VM
+  router.tf                lab subnet router/NAT VM (two IPs on one vNIC)
   variables.tf             all input variables
   terraform.tfvars         live values (gitignored)
   terraform.tfvars.example documented example values
@@ -38,6 +41,16 @@ Sets HAOS static IP via the QEMU guest agent CLI; only when `haos_static_ip != "
   virtio disk on `local-lvm`, agent enabled (8m timeout).
   **`tags = ["ansible", "nginx"]`** drive the Ansible dynamic inventory grouping.
 
+### router VM (router.tf)
+- `proxmox_virtual_environment_file.router_cloud_init` — ubuntu user +
+  `qemu-guest-agent`. Forwarding/nftables are Ansible's (`roles/router`).
+- `proxmox_virtual_environment_file.router_network_config` — cloud-init v2
+  network-config putting **two addresses on one NIC** (`router_lan_ip` +
+  `router_lab_ip`), single default route via the Deco.
+- `proxmox_virtual_environment_vm.router` — VM ID 204,
+  **`tags = ["ansible", "router"]`** → `tag_router` group.
+  Gateway for the routed lab subnet; see [`../lab-subnet.md`](../lab-subnet.md).
+
 ## Key Variables (variables.tf)
 
 | Variable | Default | Notes |
@@ -55,6 +68,15 @@ Sets HAOS static IP via the QEMU guest agent CLI; only when `haos_static_ip != "
 | `nginx_cpu_cores` / `nginx_memory_mb` / `nginx_disk_gb` | `1` / `1024` / `20` | sizing |
 | `nginx_ssh_public_key` | — | injected into ubuntu user |
 | `nginx_static_ip` / `_gateway` / `_nameserver` | `""` / `""` / `8.8.8.8` | empty = DHCP |
+| `docker_*` / `nginx_internal_*` | see file | same sizing + static-IP pattern per VM |
+| `router_vm_id` | `204` | lab router VM |
+| `router_lan_ip` | `192.168.68.50/22` | LAN-side address (Deco LAN is a /22) |
+| `router_lab_ip` | `10.10.10.1/24` | lab-side gateway address, same vNIC |
+| `router_lan_gateway` | `192.168.68.1` | router VM's only default route |
+| `router_cpu_cores` / `router_memory_mb` / `router_disk_gb` | `1` / `1024` / `10` | sizing |
+
+A VM joins the lab subnet by pointing its existing `*_static_ip` / `*_gateway`
+at the lab range — no new Terraform resources.
 
 ## Provider Config (main.tf)
 
@@ -77,3 +99,7 @@ provider "proxmox" {
   xz decompression and HAOS ships only `.qcow2.xz`.
 - nginx VM uses the bpg VM resource with a custom cloud-init network-config
   snippet (NIC name-glob match) instead of Proxmox's auto ipconfig.
+- The router VM carries both subnets on ONE vNIC because no host has a spare NIC
+  and the switch is unmanaged (no VLANs) — see [`../lab-subnet.md`](../lab-subnet.md).
+- cloud-init writes network config only on first boot: changing a `*_static_ip`
+  does not re-address an already-running VM (fix netplan in-guest).

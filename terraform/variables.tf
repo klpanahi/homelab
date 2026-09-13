@@ -214,3 +214,55 @@ variable "nginx_internal_nameserver" {
   type        = string
   default     = "8.8.8.8"
 }
+
+# ── lab router / NAT gateway ──────────────────────────────────────────────────
+# Routes the lab subnet (distinct CIDR, same physical wire) out to the LAN.
+# See docs/lab-subnet.md for the design and the caveats.
+
+variable "router_vm_id" {
+  description = "Proxmox VM ID for the lab router/NAT VM"
+  type        = number
+  default     = 204
+}
+
+variable "router_cpu_cores" {
+  description = "Number of vCPU cores for the router VM"
+  type        = number
+  default     = 1
+}
+
+variable "router_memory_mb" {
+  description = "RAM in MB for the router VM"
+  type        = number
+  default     = 1024
+}
+
+variable "router_disk_gb" {
+  description = "Root disk size in GB for the router VM"
+  type        = number
+  default     = 10
+}
+
+variable "router_lan_ip" {
+  description = "Router VM address on the home LAN, with CIDR prefix. Must be outside the Deco's DHCP pool. The Deco LAN is a /22 (192.168.68.1–192.168.71.254), so use /22 here."
+  type        = string
+  default     = "192.168.68.50/22"
+}
+
+variable "router_lan_gateway" {
+  description = "Home router (Deco) address — the router VM's only default gateway"
+  type        = string
+  default     = "192.168.68.1"
+}
+
+variable "router_lab_ip" {
+  description = "Router VM address on the lab subnet, with CIDR prefix. This is the default gateway lab VMs point at (e.g. 10.10.10.1/24)."
+  type        = string
+  default     = "10.10.10.1/24"
+}
+
+variable "router_nameserver" {
+  description = "DNS nameserver for the router VM"
+  type        = string
+  default     = "8.8.8.8"
+}

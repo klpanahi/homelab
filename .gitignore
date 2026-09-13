@@ -13,7 +13,10 @@ ansible/.vault_pass*
 ansible/*.retry
 ansible/group_vars/all/vault.yml
 ansible/collections/
-ansible/roles/
+# Galaxy-installed roles are transient and stay ignored; roles written in this
+# repo are re-included explicitly below.
+ansible/roles/*
+!ansible/roles/router/
 
 # Credentials — never commit. Only *.example files are tracked.
 *.tfvars

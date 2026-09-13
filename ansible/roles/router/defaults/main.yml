@@ -1,0 +1,22 @@
+---
+# Lab router / NAT gateway defaults. Overridden in group_vars/tag_router.yml.
+
+# Lab subnet this VM is the gateway for. Must match the router_lab_ip prefix set
+# in terraform (terraform/variables.tf) and the addresses handed to lab VMs.
+router_lab_subnet: 10.10.10.0/24
+
+# The home LAN. The Deco defaults to a /22, not a /24 — 192.168.68.1 through
+# 192.168.71.254 are all one subnet.
+router_lan_subnet: 192.168.68.0/22
+
+# Masquerade lab traffic bound for LAN hosts as well as for the internet.
+# Keep true unless the Deco has a static route 10.10.10.0/24 -> router_lan_ip;
+# without that route a LAN host has no way to answer a 10.10.10.x source address.
+# Setting this false preserves real lab source IPs on LAN-bound traffic.
+router_masquerade_to_lan: true
+
+# Subnets allowed to SSH into the router VM itself (Ansible control machine and
+# the lab hosts).
+router_ssh_allowed_subnets:
+  - "{{ router_lan_subnet }}"
+  - "{{ router_lab_subnet }}"
