@@ -6,9 +6,14 @@
 # tag_nginx      == VMs tagged "nginx" in Proxmox (see terraform/nginx.tf).
 # tag_cloudflared == VMs that should run a Cloudflare tunnel (subset of nginx VMs
 #                   that are externally exposed; internal-only nginx VMs omit this tag).
+# tag_router     == the lab router/NAT gateway VM (see terraform/router.tf).
 
+# The router VM is excluded: it holds both a LAN and a lab address on one NIC,
+# and avahi publishes every address on an interface. LAN clients would resolve
+# router.local to 10.10.10.1 and fail to reach it. The router is addressed by its
+# static LAN IP instead.
 - name: Common setup for all managed VMs
-  hosts: tag_ansible
+  hosts: tag_ansible:!tag_router
   become: true
   tasks:
     - name: Install avahi-daemon and libnss-mdns for mDNS hostname resolution
@@ -24,6 +29,15 @@
         name: avahi-daemon
         enabled: true
         state: started
+
+# Lab router/NAT gateway for the routed lab subnet (10.10.10.0/24) that lives on
+# the same physical wire as the LAN. Runs first so lab VMs have a working default
+# gateway before the plays that configure them. See docs/lab-subnet.md.
+- name: Configure the lab router/NAT gateway
+  hosts: tag_router
+  become: true
+  roles:
+    - router
 
 # geerlingguy.nginx here is install/baseline configuration only (package
 # install, service enablement, removing the stale default vhost). Any

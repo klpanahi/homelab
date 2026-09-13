@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-23 | Files scanned: 7 | Token estimate: ~520 -->
+<!-- Generated: 2026-09-13 | Files scanned: 12 | Token estimate: ~640 -->
 
 # Ansible Configuration
 
@@ -18,12 +18,15 @@ ansible/
     all/vars.yml           non-secret shared vars (incl. backup_ssh_public_key)
     all/vault.yml          GITIGNORED — vaulted secrets
     all/vault.yml.example  template
-    tag_nginx.yml          geerlingguy.nginx vhost config
+    tag_nginx.yml          geerlingguy.nginx baseline config
+    tag_router.yml         lab router: lab/LAN subnets, NAT-to-LAN toggle
+  roles/router/            REPO-OWNED role — IP forwarding + nftables ruleset
   site.yml                 top-level playbook
   .vault_pass              GITIGNORED — vault password file
-  roles/ collections/      GITIGNORED (blanket) — galaxy installs AND hand-written
-                            roles (e.g. `backup`) both live here; hand-written roles
-                            must be force-added: `git add -f roles/backup`
+  collections/             GITIGNORED — galaxy installs
+  roles/*                  GITIGNORED (galaxy installs) EXCEPT hand-written
+                            roles re-included in .gitignore (backup, router);
+                            add a negation line there for each new one
 ```
 
 ## Inventory flow
@@ -73,6 +76,7 @@ entirely. This is why the second source is named `homelab1.proxmox.yml`, not
 | `tag_ansible` | all VMs | Proxmox tag `ansible` (every managed VM carries it) |
 | `tag_docker` | docker | Proxmox tag `docker` |
 | `tag_nginx_internal` | nginx-internal | Proxmox tag `nginx_internal` |
+| `tag_router` | router | Proxmox tag `router` (homelab2 source) |
 | `tag_backup` | backup | Proxmox tag `backup` (homelab1 source) |
 | `proxmox_all_qemu` / `_all_running` | all VMs | VM type/status |
 | `proxmox_homelab2_qemu` | homeassistant, nginx, docker, nginx-internal | per-node, homelab2 source |
@@ -83,7 +87,14 @@ entirely. This is why the second source is named `homelab1.proxmox.yml`, not
 
 ```
 site.yml
-  hosts: tag_ansible       → avahi-daemon/libnss-mdns (mDNS) on every VM
+  hosts: tag_ansible:!tag_router → avahi-daemon/libnss-mdns (mDNS) on every VM
+                             except the router (avahi would publish its lab
+                             address to LAN clients that can't route to it)
+  hosts: tag_router        → role router (repo-owned): nftables pkg, ufw removed,
+                             ip_forward + send_redirects sysctls,
+                             /etc/nftables.conf (validated with `nft --check`)
+      ← group_vars/tag_router.yml: router_lab_subnet, router_lan_subnet,
+        router_masquerade_to_lan
   hosts: tag_nginx         → role geerlingguy.nginx (install/baseline only)
   hosts: tag_cloudflared   → role cloudflared
   hosts: tag_docker        → role geerlingguy.docker, then installs
@@ -176,5 +187,7 @@ ansible-playbook site.yml
 
 ## Notes
 
-- Connectivity over the LAN IP the guest agent reports; ZeroTier can layer on later.
+- Connectivity over the IP the guest agent reports; ZeroTier can layer on later.
+  A VM on `10.10.10.0/24` is only reachable if the control machine has a route via
+  the router VM (`192.168.68.50`) — see [`../lab-subnet.md`](../lab-subnet.md).
 - `community.proxmox.proxmox` replaces the deprecated `community.general.proxmox`.

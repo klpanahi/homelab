@@ -13,6 +13,10 @@ Architecture, infrastructure, and dependency details live in token-lean codemaps
 - [`docs/CODEMAPS/ansible.md`](docs/CODEMAPS/ansible.md) — dynamic inventory, tag groups, playbook, roles
 - [`docs/CODEMAPS/dependencies.md`](docs/CODEMAPS/dependencies.md) — providers, collections, external services, runtime requirements
 
+Design notes that are not a system map live alongside them:
+
+- [`docs/lab-subnet.md`](docs/lab-subnet.md) — the routed lab subnet: why L3-only, address plan, bring-up, migration traps
+
 **After making code changes, update the codemaps** by running `/ecc:update-codemaps` in Claude Code.
 
 ---
@@ -44,6 +48,37 @@ The QEMU guest agent must be installed (`apt install qemu-guest-agent && systemc
 - ZeroTier installed on all VMs + laptop — SSH and Ansible/Terraform traverse ZeroTier only
 - UFW default: deny inbound, allow outgoing, SSH allowed from ZeroTier subnet only
 - Public services: Cloudflare Tunnel (outbound-only, zero open inbound ports)
+- Lab VMs: addresses from `10.10.10.0/24`, routed and NAT'd by the router VM (see below). The Deco LAN is a **/22** (`192.168.68.1`–`192.168.71.254`), not a /24
+
+---
+
+## Why the Lab Subnet is Routed, Not VLAN'd
+
+Lab VMs need addresses outside the range the Deco hands household devices. The
+obvious answer — a VLAN — is unavailable: the switch is unmanaged (no tagging),
+and neither Proxmox host has a spare NIC to dedicate to lab traffic. Buying a
+cheap managed switch was evaluated and deferred; nothing here needed new hardware.
+
+So separation is **layer 3 only**. Lab VMs stay on `vmbr0`, on the same broadcast
+domain as the rest of the house, but carry `10.10.10.0/24` addresses and route
+through a small router VM that masquerades onto the LAN. The router holds both a
+LAN and a lab address on one vNIC — "router on a stick".
+
+This buys a predictable address plan, not a security boundary: any LAN device can
+still reach lab VMs at layer 2. Real isolation means a managed switch and VLANs.
+
+Consequences worth remembering, with the full runbook in
+[`docs/lab-subnet.md`](docs/lab-subnet.md):
+
+- **No DHCP server on the lab subnet** — it would share a broadcast domain with
+  the Deco's and hand lab leases to household devices. Lab addresses are static.
+- **mDNS crosses the subnet boundary.** avahi advertises whichever address a host
+  actually holds, so moving a VM changes what its `.local` name resolves to for
+  *every* LAN host. nginx pins upstream addresses at parse time, so move the
+  party-time chain together or not at all.
+- **The control machine needs a route** (`10.10.10.0/24 via 192.168.68.50`) —
+  otherwise Ansible's dynamic inventory resolves lab VMs to unreachable IPs.
+- The router VM is excluded from the avahi play; it is addressed by static IP.
 
 ---
 

@@ -15,12 +15,15 @@ ansible/group_vars/all/vault.yml
 ansible/collections/
 
 # Galaxy roles get installed into ansible/roles/ and must stay ignored, but
-# hand-written roles (cloudflared, backup) are tracked source and live in
-# this same directory. Git won't descend into an ignored directory, so a
-# plain "!ansible/roles/cloudflared/" negation here does not reliably work.
-# Hand-written roles are instead force-added individually with
-# `git add -f ansible/roles/<name>`.
-# ansible/roles/
+# hand-written roles are tracked source living in the same directory.
+# Ignore the directory's CHILDREN (ansible/roles/*), not the directory itself:
+# git never re-includes anything under an excluded directory, so
+# "ansible/roles/" + "!ansible/roles/<name>/" silently fails, whereas
+# "ansible/roles/*" + "!ansible/roles/<name>/" works. No `git add -f` needed —
+# add a negation line here when you add a hand-written role.
+ansible/roles/*
+!ansible/roles/backup/
+!ansible/roles/router/
 
 # Credentials — never commit. Only *.example files are tracked.
 *.tfvars
