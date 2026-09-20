@@ -48,7 +48,8 @@ Sets HAOS static IP via the QEMU guest agent CLI; only when `haos_static_ip != "
   network-config putting **two addresses on one NIC** (`router_lan_ip` +
   `router_lab_ip`), single default route via the Deco.
 - `proxmox_virtual_environment_vm.router` — VM ID 204,
-  **`tags = ["ansible", "router"]`** → `tag_router` group.
+  **`tags = ["ansible", "router"]`** → `tag_router` group. NIC MAC pinned
+  (`router_mac_address`) so the Deco can reserve the LAN address.
   Gateway for the routed lab subnet; see [`../lab-subnet.md`](../lab-subnet.md).
 
 ## Key Variables (variables.tf)
@@ -70,7 +71,8 @@ Sets HAOS static IP via the QEMU guest agent CLI; only when `haos_static_ip != "
 | `nginx_static_ip` / `_gateway` / `_nameserver` | `""` / `""` / `8.8.8.8` | empty = DHCP |
 | `docker_*` / `nginx_internal_*` | see file | same sizing + static-IP pattern per VM |
 | `router_vm_id` | `204` | lab router VM |
-| `router_lan_ip` | `192.168.68.50/22` | LAN-side address (Deco LAN is a /22) |
+| `router_lan_ip` | `192.168.68.100/22` | LAN-side address; below the Deco DHCP pool (starts `.50`) |
+| `router_mac_address` | `BC:24:11:00:02:04` | pinned NIC MAC for the Deco address reservation |
 | `router_lab_ip` | `10.10.10.1/24` | lab-side gateway address, same vNIC |
 | `router_lan_gateway` | `192.168.68.1` | router VM's only default route |
 | `router_cpu_cores` / `router_memory_mb` / `router_disk_gb` | `1` / `1024` / `10` | sizing |

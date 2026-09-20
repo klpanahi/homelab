@@ -73,7 +73,7 @@ ansible-playbook site.yml
   `requirements.yml` for the `sysctl` module. See [`../docs/lab-subnet.md`](../docs/lab-subnet.md).
 - `ansible_host` is whatever address the guest agent reports, so once a VM moves
   to `10.10.10.0/24` the control machine needs a route to that subnet via the
-  router VM (`192.168.68.50`) or every task fails as unreachable.
+  router VM (`192.168.68.100`) or every task fails as unreachable.
 - Connectivity is over the LAN IP the QEMU guest agent reports. ZeroTier-based
   access can be layered on later as its own play/group.
 - The `community.proxmox.proxmox` plugin replaces the deprecated

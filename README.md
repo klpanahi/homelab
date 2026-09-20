@@ -90,11 +90,11 @@ See [`ansible/README.md`](ansible/README.md) for details.
 
 ### 3. (Optional) Reach the lab subnet
 
-Lab VMs live on `10.10.10.0/24`, routed by the `router` VM at `192.168.68.50`.
+Lab VMs live on `10.10.10.0/24`, routed by the `router` VM at `192.168.68.100`.
 The control machine needs a route before it can reach them:
 
 ```bash
-sudo route -n add -net 10.10.10.0/24 192.168.68.50
+sudo route -n add -net 10.10.10.0/24 192.168.68.100
 ```
 
 See [`docs/lab-subnet.md`](docs/lab-subnet.md) for the design, bring-up, and the

@@ -80,5 +80,5 @@ ansible-playbook site.yml
 
 - Connectivity over the IP the guest agent reports; ZeroTier can layer on later.
   A VM on `10.10.10.0/24` is only reachable if the control machine has a route via
-  the router VM (`192.168.68.50`) — see [`../lab-subnet.md`](../lab-subnet.md).
+  the router VM (`192.168.68.100`) — see [`../lab-subnet.md`](../lab-subnet.md).
 - `community.proxmox.proxmox` replaces the deprecated `community.general.proxmox`.

@@ -10,5 +10,5 @@ router_lab_subnet: 10.10.10.0/24
 # The Deco's LAN is a /22 (192.168.68.1–192.168.71.254), not a /24.
 router_lan_subnet: 192.168.68.0/22
 
-# True until the Deco carries a static route 10.10.10.0/24 -> 192.168.68.50.
+# True until the Deco carries a static route 10.10.10.0/24 -> 192.168.68.100.
 router_masquerade_to_lan: true

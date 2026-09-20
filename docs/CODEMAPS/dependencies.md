@@ -39,4 +39,4 @@
 - Vault password file `ansible/.vault_pass` for the inventory token secret
 - VM SSH key (`ubuntu` user) for Ansible to reach guests over the LAN
 - `nftables` on the router VM (installed by `roles/router`); ufw removed there
-- A control-machine route to `10.10.10.0/24` via `192.168.68.50` to manage lab VMs
+- A control-machine route to `10.10.10.0/24` via `192.168.68.100` to manage lab VMs

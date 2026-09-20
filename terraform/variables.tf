@@ -45,7 +45,7 @@ variable "haos_mac_address" {
 }
 
 variable "haos_static_ip" {
-  description = "Static IP with CIDR prefix for Home Assistant VM, e.g. 192.168.68.100/24. Leave empty to keep DHCP."
+  description = "Static IP with CIDR prefix for Home Assistant VM, e.g. 192.168.68.60/24 (held by a Deco address reservation on haos_mac_address). Leave empty to keep DHCP."
   type        = string
   default     = ""
 }
@@ -244,9 +244,15 @@ variable "router_disk_gb" {
 }
 
 variable "router_lan_ip" {
-  description = "Router VM address on the home LAN, with CIDR prefix. Must be outside the Deco's DHCP pool. The Deco LAN is a /22 (192.168.68.1–192.168.71.254), so use /22 here."
+  description = "Router VM address on the home LAN, with CIDR prefix. Sits inside the Deco DHCP pool (192.168.68.50-192.168.71.250) because the Deco only accepts address reservations within its own range — the address is held by a reservation bound to router_mac_address. The Deco LAN is a /22 (192.168.68.1-192.168.71.254), so use /22 here."
   type        = string
-  default     = "192.168.68.50/22"
+  default     = "192.168.68.100/22"
+}
+
+variable "router_mac_address" {
+  description = "Fixed MAC address for the router VM NIC. Pinned so the Deco can hold an address reservation for router_lan_ip, which sits inside the DHCP pool and would otherwise be leased away. Create the reservation BEFORE applying. Uses Proxmox's BC:24:11 OUI, matching haos_mac_address."
+  type        = string
+  default     = "BC:24:11:00:02:04"
 }
 
 variable "router_lan_gateway" {

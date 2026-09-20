@@ -6,7 +6,8 @@
 # a spare NIC.
 #
 # The VM has ONE vNIC on the existing vmbr0 bridge carrying TWO addresses:
-#   - router_lan_ip  (e.g. 192.168.68.50/22) — reachable from the Deco and the LAN
+#   - router_lan_ip  (e.g. 192.168.68.100/22) — reachable from the Deco and the LAN,
+#     held by a Deco address reservation bound to router_mac_address
 #   - router_lab_ip  (e.g. 10.10.10.1/24)    — default gateway for lab VMs
 # Lab VMs on EITHER Proxmox host reach it over the shared broadcast domain.
 #
@@ -101,8 +102,14 @@ resource "proxmox_virtual_environment_vm" "router" {
     dedicated = var.router_memory_mb
   }
 
+  # The MAC is pinned so the Deco can hold an address reservation for
+  # router_lan_ip. The address has to sit inside the DHCP pool (the Deco refuses
+  # reservations outside its own range), so the reservation is the only thing
+  # keeping it — and losing it takes the whole lab subnet offline. Create the
+  # reservation before applying.
   network_device {
-    bridge = var.vm_network_bridge
+    bridge      = var.vm_network_bridge
+    mac_address = var.router_mac_address
   }
 
   disk {

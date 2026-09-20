@@ -49,6 +49,7 @@ The QEMU guest agent must be installed (`apt install qemu-guest-agent && systemc
 - UFW default: deny inbound, allow outgoing, SSH allowed from ZeroTier subnet only
 - Public services: Cloudflare Tunnel (outbound-only, zero open inbound ports)
 - Lab VMs: addresses from `10.10.10.0/24`, routed and NAT'd by the router VM (see below). The Deco LAN is a **/22** (`192.168.68.1`–`192.168.71.254`), not a /24
+- Deco address reservations must be **inside** its DHCP pool (`192.168.68.50`–`192.168.71.250`) — there is no "static space below the pool" on this router. Stable addresses are in-pool and held by a MAC reservation: `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`. `docker`/`nginx-cloudflared`/`nginx-internal` are **unreserved** dynamic leases, which is the root of the recurring mDNS breakage (see the `fix-homelab-mdns` skill)
 
 ---
 
@@ -76,7 +77,7 @@ Consequences worth remembering, with the full runbook in
   actually holds, so moving a VM changes what its `.local` name resolves to for
   *every* LAN host. nginx pins upstream addresses at parse time, so move the
   party-time chain together or not at all.
-- **The control machine needs a route** (`10.10.10.0/24 via 192.168.68.50`) —
+- **The control machine needs a route** (`10.10.10.0/24 via 192.168.68.100`) —
   otherwise Ansible's dynamic inventory resolves lab VMs to unreachable IPs.
 - The router VM is excluded from the avahi play; it is addressed by static IP.
 
@@ -101,5 +102,11 @@ Consequences worth remembering, with the full runbook in
 ## Open Decisions
 
 - Which services run on which machine; split for redundancy vs. single host with cross-machine backup
-- DNS strategy for internal service discovery (Pi-hole or similar)
+- DNS strategy for internal service discovery. Direction settled, not yet built:
+  dnsmasq on the lab router VM, authoritative for a private zone with records in
+  git, replacing mDNS for anything on the lab subnet — see
+  [`docs/lab-subnet.md`](docs/lab-subnet.md) ("Where this is heading"). Pi-hole is
+  dnsmasq with a UI and can take that role later. Open sub-questions: which zone
+  name, and whether the LAN side resolves it via per-host resolver config or by
+  pointing the Deco's DNS at the router
 - Monitoring and alerting (Grafana + Prometheus is a natural fit)
