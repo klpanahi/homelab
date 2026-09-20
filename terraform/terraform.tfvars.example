@@ -18,3 +18,22 @@ nginx_ssh_public_key = "ssh-ed25519 AAAA... you@host"
 # nginx_static_ip  = "192.168.68.101/24"   # leave empty to use DHCP + Deco MAC reservation
 # nginx_gateway    = "192.168.68.1"
 # nginx_nameserver = "8.8.8.8"
+
+# homelab1 — a SEPARATE, standalone Proxmox host (not clustered with homelab2)
+# that hosts the backup VM
+# proxmox_homelab1_endpoint  = "https://192.168.68.75:8006"   # default
+proxmox_homelab1_api_token = "terraform@pve!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+# Query https://192.168.68.75:8006/api2/json/nodes on homelab1 itself to find
+# this — it is NOT the same node name as homelab2 and is not yet known.
+proxmox_homelab1_node = "homelab1"
+# proxmox_homelab1_ssh_host = "192.168.68.75"   # default
+
+# backup VM (on homelab1) — sizing defaults are usually fine, adjust
+# backup_disk_gb against homelab1's free space since it's the backup store
+# backup_vm_id      = 300    # default
+# backup_cpu_cores  = 2      # default
+# backup_memory_mb  = 2048   # default (2 GB)
+# backup_disk_gb    = 100    # default
+# backup_static_ip  = "192.168.68.104/24"   # leave empty to use DHCP
+# backup_gateway    = "192.168.68.1"
+# backup_nameserver = "8.8.8.8"

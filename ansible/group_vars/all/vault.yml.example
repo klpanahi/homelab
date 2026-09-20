@@ -7,3 +7,36 @@
 # group_vars, so it can't be referenced as a plain group var). Any future
 # play-level secrets can live here too.
 proxmox_token_secret: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# proxmox_token_secret_homelab1 is the SECRET half of homelab1's OWN Proxmox
+# API token (root@pam!terraform on homelab1). homelab1 and homelab2 are
+# standalone Proxmox hosts, not clustered, so they each have their own user/
+# token database — this is a distinct secret from proxmox_token_secret above,
+# not a duplicate. Read by inventory/proxmox-homelab1.yml via the same
+# unvault lookup pattern.
+proxmox_token_secret_homelab1: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# vault_ha_token is a Home Assistant long-lived access token for an ADMIN
+# user, used by the backup role to call HA's API at http://192.168.68.60:8123
+# to trigger/fetch a Home Assistant backup over HTTP. Create one from the HA
+# web UI: profile -> Security -> Long-lived access tokens.
+vault_ha_token: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# vault_backup_ssh_private_key is an ed25519 PRIVATE key the backup VM uses to
+# SSH to the docker VM and run pg_dump. Generate the keypair ONCE on the
+# operator's Mac (not on the VM itself) and paste the private half here:
+#   ssh-keygen -t ed25519 -f /tmp/backup_key -N "" -C "backup@homelab1"
+# Generating it on the Mac rather than on the backup VM keeps site.yml a
+# single pass with no play-ordering dependency (the docker play can install
+# the public key without waiting on the backup VM to exist and generate one
+# first). The PUBLIC half goes in group_vars/all/vars.yml as
+# backup_ssh_public_key (not a secret, tracked in plaintext).
+#
+# No Postgres credentials are needed here: the dump script reads
+# $POSTGRES_USER from inside the running container on the docker VM, so
+# there's no separate DB username/password to vault.
+vault_backup_ssh_private_key: |
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  -----END OPENSSH PRIVATE KEY-----

@@ -3,3 +3,13 @@
 # Secrets live in the gitignored, vault-encrypted group_vars/all/vault.yml
 # (e.g. proxmox_token_secret, which the inventory reads via an unvault lookup).
 # Keep this file plaintext / non-secret.
+
+# Public half of vault_backup_ssh_private_key (see vault.yml.example). Not a
+# secret — the private half is what must stay vaulted. site.yml installs this
+# into the ubuntu user's authorized_keys on the docker VM so the backup VM
+# (on homelab1) can SSH in and run pg_dump.
+#
+# site.yml skips the authorized_key task while this is blank, so a run before
+# the keypair exists can't write a junk entry into a production VM's
+# authorized_keys.
+backup_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIItFWsL3KimcdtsMDxIp/BdYB2JHQXK+X/3TQsdG3SwC backup@homelab1"

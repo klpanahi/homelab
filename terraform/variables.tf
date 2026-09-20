@@ -214,3 +214,72 @@ variable "nginx_internal_nameserver" {
   type        = string
   default     = "8.8.8.8"
 }
+
+# ── homelab1 node ────────────────────────────────────────────────────────────
+
+variable "proxmox_homelab1_endpoint" {
+  description = "Proxmox API URL for the standalone homelab1 host, e.g. https://192.168.68.75:8006"
+  type        = string
+  default     = "https://192.168.68.75:8006"
+}
+
+variable "proxmox_homelab1_api_token" {
+  description = "API token for homelab1 in format 'user@realm!token_id=secret'"
+  type        = string
+  sensitive   = true
+}
+
+variable "proxmox_homelab1_node" {
+  description = "Proxmox node name as reported by homelab1's own /api2/json/nodes. homelab1 is not clustered with homelab2, so this is not yet known and must be filled in by querying that API directly."
+  type        = string
+}
+
+variable "proxmox_homelab1_ssh_host" {
+  description = "IP or hostname used to SSH into the homelab1 Proxmox node (root)"
+  type        = string
+  default     = "192.168.68.75"
+}
+
+# ── backup VM (on homelab1) ──────────────────────────────────────────────────
+
+variable "backup_vm_id" {
+  description = "Proxmox VM ID for the backup VM"
+  type        = number
+  default     = 300
+}
+
+variable "backup_cpu_cores" {
+  description = "Number of vCPU cores for the backup VM"
+  type        = number
+  default     = 2
+}
+
+variable "backup_memory_mb" {
+  description = "RAM in MB for the backup VM"
+  type        = number
+  default     = 2048
+}
+
+variable "backup_disk_gb" {
+  description = "Disk size in GB for the backup VM. This is the backup store itself, so size it against homelab1's free space."
+  type        = number
+  default     = 100
+}
+
+variable "backup_static_ip" {
+  description = "Static IP with CIDR for the backup VM, e.g. 192.168.68.104/24. Leave empty for DHCP."
+  type        = string
+  default     = ""
+}
+
+variable "backup_gateway" {
+  description = "Gateway for backup VM static IP (required when backup_static_ip is set)"
+  type        = string
+  default     = ""
+}
+
+variable "backup_nameserver" {
+  description = "DNS nameserver for the backup VM"
+  type        = string
+  default     = "8.8.8.8"
+}

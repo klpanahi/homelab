@@ -59,7 +59,7 @@ The QEMU guest agent must be installed (`apt install qemu-guest-agent && systemc
 
 - **Terraform**: provisions VMs; VM identity tracked by Proxmox VM ID, not IP
 - **Ansible**: configures VMs post-provision; uses the `community.proxmox.proxmox` dynamic inventory (no static IP files), grouping VMs by Proxmox tags; prefers open-source Galaxy roles over hand-written tasks; secrets in Ansible Vault, never plaintext. (The older `community.general.proxmox` plugin is deprecated.)
-- Provisioning order: `terraform apply` → VM boots → guest agent reports IP → `ansible-playbook site.yml` → PBS picks up on next schedule
+- Provisioning order: `terraform apply` → VM boots → guest agent reports IP → `ansible-playbook site.yml`. There is no PBS integration; the backup service (see `docs/CODEMAPS/architecture.md`) runs on its own systemd timers on the dedicated `backup` VM, independent of provisioning — a newly provisioned workload is not automatically backed up.
 
 ---
 

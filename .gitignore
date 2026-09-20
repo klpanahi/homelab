@@ -13,7 +13,14 @@ ansible/.vault_pass*
 ansible/*.retry
 ansible/group_vars/all/vault.yml
 ansible/collections/
-ansible/roles/
+
+# Galaxy roles get installed into ansible/roles/ and must stay ignored, but
+# hand-written roles (cloudflared, backup) are tracked source and live in
+# this same directory. Git won't descend into an ignored directory, so a
+# plain "!ansible/roles/cloudflared/" negation here does not reliably work.
+# Hand-written roles are instead force-added individually with
+# `git add -f ansible/roles/<name>`.
+# ansible/roles/
 
 # Credentials — never commit. Only *.example files are tracked.
 *.tfvars
@@ -33,3 +40,5 @@ id_ed25519*
 # General
 .DS_Store
 *.swp
+ansible/roles/cloudflared/
+ansible/roles/geerlingguy.*
