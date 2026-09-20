@@ -1,0 +1,67 @@
+#!/usr/sbin/nft -f
+# MANAGED BY ANSIBLE (ansible/roles/router) — local edits are overwritten.
+#
+# Lab subnet gateway. One NIC, two subnets: forwarded traffic enters and leaves
+# the same interface, so rules match on addresses rather than iifname/oifname
+# (interface names also vary by machine type — ens18 vs enp0s18 vs enp6s18).
+
+flush ruleset
+
+define LAB_NET = {{ router_lab_subnet }}
+define LAN_NET = {{ router_lan_subnet }}
+
+table inet filter {
+  chain input {
+    type filter hook input priority filter; policy drop;
+
+    iif lo accept
+    ct state established,related accept
+    ct state invalid drop
+
+    # ICMP stays open in both directions: ping is the first diagnostic when the
+    # lab subnet looks broken, and PMTUD needs it.
+    ip protocol icmp accept
+    ip6 nexthdr ipv6-icmp accept
+
+    # SSH for Ansible (control machine on the LAN) and from lab hosts.
+    ip saddr { {{ router_ssh_allowed_subnets | join(', ') }} } tcp dport 22 accept
+
+    counter comment "input dropped"
+  }
+
+  chain forward {
+    type filter hook forward priority filter; policy drop;
+
+    ct state established,related accept
+    ct state invalid drop
+
+    # Lab -> anywhere: internet (masqueraded below), LAN hosts, other lab hosts.
+    ip saddr $LAB_NET accept
+
+    # LAN -> lab. This grants no access a LAN host couldn't already take by
+    # assigning itself a lab address — both sides share one broadcast domain.
+    # Routed separation is about address space, not security.
+    ip daddr $LAB_NET accept
+
+    counter comment "forward dropped"
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+  }
+}
+
+table inet nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+
+{% if not router_masquerade_to_lan %}
+    # The Deco has a static route for $LAB_NET, so LAN-bound traffic can keep its
+    # real source address (router_masquerade_to_lan: false).
+    ip saddr $LAB_NET ip daddr $LAN_NET return
+{% endif %}
+    # Only the first packet of a connection hits the nat table, so replies on
+    # LAN-initiated connections are untouched by this rule.
+    ip saddr $LAB_NET ip daddr != $LAB_NET masquerade
+  }
+}

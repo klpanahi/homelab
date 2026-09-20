@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-23 | Files scanned: 7 | Token estimate: ~520 -->
+<!-- Generated: 2026-09-13 | Files scanned: 12 | Token estimate: ~640 -->
 
 # Ansible Configuration
 
@@ -18,12 +18,15 @@ ansible/
     all/vars.yml           non-secret shared vars (incl. backup_ssh_public_key)
     all/vault.yml          GITIGNORED — vaulted secrets
     all/vault.yml.example  template
-    tag_nginx.yml          geerlingguy.nginx vhost config
+    tag_nginx.yml          geerlingguy.nginx baseline config
+    tag_router.yml         lab router: lab/LAN subnets, NAT-to-LAN toggle
+  roles/router/            REPO-OWNED role — IP forwarding + nftables ruleset
   site.yml                 top-level playbook
   .vault_pass              GITIGNORED — vault password file
-  roles/ collections/      GITIGNORED (blanket) — galaxy installs AND hand-written
-                            roles (e.g. `backup`) both live here; hand-written roles
-                            must be force-added: `git add -f roles/backup`
+  collections/             GITIGNORED — galaxy installs
+  roles/*                  GITIGNORED except repo-owned roles, which are
+                            re-included by name in .gitignore (backup,
+                            cloudflared, router) — no `git add -f` needed
 ```
 
 ## Inventory flow
@@ -70,12 +73,13 @@ entirely. This is why the second source is named `homelab1.proxmox.yml`, not
 | Group | Members | Source |
 |---|---|---|
 | `tag_nginx` | nginx | Proxmox tag `nginx` |
+| `tag_router` | router | Proxmox tag `router` |
 | `tag_ansible` | all VMs | Proxmox tag `ansible` (every managed VM carries it) |
 | `tag_docker` | docker | Proxmox tag `docker` |
 | `tag_nginx_internal` | nginx-internal | Proxmox tag `nginx_internal` |
 | `tag_backup` | backup | Proxmox tag `backup` (homelab1 source) |
 | `proxmox_all_qemu` / `_all_running` | all VMs | VM type/status |
-| `proxmox_homelab2_qemu` | homeassistant, nginx, docker, nginx-internal | per-node, homelab2 source |
+| `proxmox_homelab2_qemu` | homeassistant, nginx, docker, nginx-internal, router | per-node, homelab2 source |
 | `proxmox_homelab1_node`'s qemu group | backup | per-node, homelab1 source |
 | `proxmox_nodes` | homelab2, homelab1 | node, one per inventory source |
 
@@ -83,7 +87,13 @@ entirely. This is why the second source is named `homelab1.proxmox.yml`, not
 
 ```
 site.yml
-  hosts: tag_ansible       → avahi-daemon/libnss-mdns (mDNS) on every VM
+  hosts: tag_ansible:!tag_router → avahi-daemon/libnss-mdns (mDNS) on every VM
+      router excluded: avahi would publish its lab address to LAN clients
+  hosts: tag_router        → role router (repo-owned)
+      ← group_vars/tag_router.yml: router_lab_subnet, router_lan_subnet,
+        router_masquerade_to_lan
+      tasks: nftables pkg, ufw removed, ip_forward + send_redirects sysctls,
+        /etc/nftables.conf from template (validated with `nft --check`)
   hosts: tag_nginx         → role geerlingguy.nginx (install/baseline only)
   hosts: tag_cloudflared   → role cloudflared
   hosts: tag_docker        → role geerlingguy.docker, then installs
@@ -176,5 +186,7 @@ ansible-playbook site.yml
 
 ## Notes
 
-- Connectivity over the LAN IP the guest agent reports; ZeroTier can layer on later.
+- Connectivity over the IP the guest agent reports; ZeroTier can layer on later.
+  A VM on `10.10.10.0/24` is only reachable if the control machine has a route via
+  the router VM (`192.168.68.100`) — see [`../lab-subnet.md`](../lab-subnet.md).
 - `community.proxmox.proxmox` replaces the deprecated `community.general.proxmox`.

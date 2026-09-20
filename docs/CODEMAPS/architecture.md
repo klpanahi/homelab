@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-23 | Files scanned: 14 | Token estimate: ~480 -->
+<!-- Generated: 2026-09-13 | Files scanned: 16 | Token estimate: ~560 -->
 
 # Homelab Architecture
 
@@ -19,6 +19,7 @@ Proxmox Node (homelab2, 192.168.68.65)
   ├── VM 201: nginx         (Ubuntu 24.04 cloud-image, bpg VM resource)
   ├── VM 202: docker        (Docker host — runs party-time-db etc.)
   ├── VM 203: nginx-internal (Ubuntu 24.04 cloud-image, bpg VM resource)
+  ├── VM 204: router        (lab subnet gateway: 192.168.68.100 + 10.10.10.1)
   └── VM: windows           (Windows VM — planned)
 
 Proxmox Node (homelab1, 192.168.68.75) — STANDALONE, not clustered with homelab2
@@ -34,9 +35,17 @@ can't take the backups down along with the things they back up.
 
 ## Networking
 
+- Home LAN: `192.168.68.0/22` (Deco default — a /22, not a /24), gateway `192.168.68.1`
+- Lab subnet: `10.10.10.0/24`, gateway = router VM `10.10.10.1`; static addresses
+  only (no DHCP server — it would share a broadcast domain with the Deco's).
+  Same wire as the LAN, separated at L3 only — see [`../lab-subnet.md`](../lab-subnet.md)
 - Proxmox hosts: static DHCP reservations in TP-Link Deco by MAC
 - VMs: `vmbr0` bridge → home network, DHCP from Deco
-- Stable-IP VMs (e.g. HAOS): MAC-based DHCP reservation in Deco
+- Deco DHCP pool: `192.168.68.50`–`192.168.71.250`; reservations are only accepted
+  **inside** that range, so stable addresses are in-pool + MAC-reserved
+- Reserved today: `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`.
+  `homelab1` `.75`, `nginx-cloudflared` `.77`, `docker` `.78`, `nginx-internal`
+  `.85` are unreserved
 - Remote access: ZeroTier mesh VPN (planned on VMs); Ansible currently over LAN
 - UFW on each VM: deny inbound except ZeroTier subnet port 22 (planned)
 - Public services: Cloudflare Tunnel (outbound-only, no open ports — planned)
@@ -96,6 +105,7 @@ next boot). See [`ansible.md`](ansible.md) for the `backup` role.
 - [`infrastructure.md`](infrastructure.md) — Terraform resources, variables, provider
 - [`ansible.md`](ansible.md) — dynamic inventory, groups, playbook, roles
 - [`dependencies.md`](dependencies.md) — providers, collections, external services
+- [`../lab-subnet.md`](../lab-subnet.md) — routed lab subnet design + runbook
 
 ## Planned Directories (not yet in repo)
 

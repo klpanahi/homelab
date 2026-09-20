@@ -1,0 +1,14 @@
+# Variables for the tag_router group (VMs tagged "router" in Proxmox).
+# Consumed by the repo-owned roles/router role.
+#
+# Keep router_lab_subnet in sync with terraform's router_lab_ip prefix
+# (terraform/variables.tf) and with the *_gateway values handed to lab VMs.
+# Design and runbook: docs/lab-subnet.md
+
+router_lab_subnet: 10.10.10.0/24
+
+# The Deco's LAN is a /22 (192.168.68.1–192.168.71.254), not a /24.
+router_lan_subnet: 192.168.68.0/22
+
+# True until the Deco carries a static route 10.10.10.0/24 -> 192.168.68.100.
+router_masquerade_to_lan: true
