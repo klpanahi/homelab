@@ -13,10 +13,18 @@ ansible/.vault_pass*
 ansible/*.retry
 ansible/group_vars/all/vault.yml
 ansible/collections/
-# Galaxy-installed roles are transient and stay ignored; roles written in this
-# repo are re-included explicitly below.
+
+# Galaxy roles get installed into ansible/roles/ and must stay ignored, but
+# hand-written roles live in that same directory and are tracked source.
+# The pattern has to exclude the directory's CHILDREN (ansible/roles/*), not the
+# directory itself — git will not descend into an excluded directory, so a
+# negation under a plain "ansible/roles/" is silently ignored. In this form the
+# negations below work and `git add -f` is not needed.
 ansible/roles/*
+!ansible/roles/backup/
 !ansible/roles/router/
+# cloudflared is hand-written but deliberately not committed — it stays local,
+# covered by the ansible/roles/* rule above with no negation.
 
 # Credentials — never commit. Only *.example files are tracked.
 *.tfvars

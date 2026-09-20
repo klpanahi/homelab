@@ -1,0 +1,7 @@
+[Unit]
+Description=Back up Home Assistant via the Core backup integration (WebSocket + REST)
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/bin/backup-homeassistant.py

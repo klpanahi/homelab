@@ -1,0 +1,45 @@
+---
+# Root directory on the backup VM under which all backup artifacts live.
+backup_root: /var/backups/homelab
+
+# Home Assistant Core API, reached over the LAN from the backup VM.
+backup_ha_url: "http://192.168.68.60:8123"
+
+# Long-lived access token for the HA Core API.
+# Set vault_ha_token in group_vars/all/vault.yml.
+backup_ha_token: "{{ vault_ha_token }}"
+
+# The `backup` integration agent that represents HA's own local storage.
+# Confirmed empirically via the `backup/agents/info` WS command against a
+# live HAOS instance -- do not assume this without checking, it is not
+# documented anywhere obvious.
+backup_ha_agent_id: hassio.local
+
+# How long (seconds) to wait for HA to finish generating a backup before
+# giving up. A full backup (config + database + folders) can take several
+# minutes, so this is intentionally generous.
+backup_ha_create_timeout: 1800
+
+# The docker VM (homelab2) that hosts party-time-db, reached over SSH.
+backup_docker_host: docker.local
+backup_docker_user: ubuntu
+
+# SSH private key used to pull the Postgres dump. Public key must be
+# authorized on backup_docker_user@backup_docker_host.
+# Set vault_backup_ssh_private_key in group_vars/all/vault.yml.
+backup_ssh_key_path: /root/.ssh/id_backup
+
+# party-time's Postgres container. The app data lives in the
+# "party_time" schema, not "public" -- pg_dump must be told this
+# explicitly or the dump will silently contain nothing.
+backup_pg_container: party-time-db
+backup_pg_database: party_time
+backup_pg_schema: party_time
+
+# Retention, in days, for locally-pruned backup copies.
+backup_ha_retention_days: 14
+backup_pg_retention_days: 30
+
+# systemd OnCalendar expressions for the backup timers.
+backup_ha_oncalendar: "*-*-* 03:15:00"
+backup_pg_oncalendar: "*-*-* 03:45:00"
