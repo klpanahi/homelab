@@ -19,7 +19,7 @@ Proxmox Node (homelab2, 192.168.68.65)
   ├── VM 201: nginx         (Ubuntu 24.04 cloud-image, bpg VM resource)
   ├── VM 202: docker        (Docker host — runs party-time-db etc.)
   ├── VM 203: nginx-internal (Ubuntu 24.04 cloud-image, bpg VM resource)
-  ├── VM 204: router        (lab subnet gateway: 192.168.68.50 + 10.10.10.1)
+  ├── VM 204: router        (lab subnet gateway: 192.168.68.100 + 10.10.10.1)
   └── VM: windows           (Windows VM — planned)
 
 Proxmox Node (homelab1, 192.168.68.75) — STANDALONE, not clustered with homelab2
@@ -41,7 +41,10 @@ can't take the backups down along with the things they back up.
   Same wire as the LAN, separated at L3 only — see [`../lab-subnet.md`](../lab-subnet.md)
 - Proxmox hosts: static DHCP reservations in TP-Link Deco by MAC
 - VMs: `vmbr0` bridge → home network, DHCP from Deco
-- Stable-IP VMs (e.g. HAOS): MAC-based DHCP reservation in Deco
+- Deco DHCP pool: `192.168.68.50`–`192.168.71.250`; reservations are only accepted
+  **inside** that range, so stable addresses are in-pool + MAC-reserved
+- Reserved today: `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`.
+  `nginx-cloudflared` `.77`, `docker` `.78`, `nginx-internal` `.85` are unreserved
 - Remote access: ZeroTier mesh VPN (planned on VMs); Ansible currently over LAN
 - UFW on each VM: deny inbound except ZeroTier subnet port 22 (planned)
 - Public services: Cloudflare Tunnel (outbound-only, no open ports — planned)
