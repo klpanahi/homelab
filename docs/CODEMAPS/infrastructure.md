@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-23 | Files scanned: 5 | Token estimate: ~560 -->
+<!-- Generated: 2026-09-27 | Files scanned: 9 | Token estimate: ~1550 -->
 
 # Terraform Infrastructure
 
@@ -9,7 +9,10 @@ terraform/
   main.tf                  provider config (proxmox default alias + proxmox.homelab1 alias + null)
   homelab2.tf              HAOS VM provisioning (null_resource, SSH remote-exec)
   nginx.tf                 nginx VM (bpg VM resource + cloud-init snippets)
+  nginx-internal.tf        LAN-only nginx VM
+  docker.tf                Docker host VM
   backup.tf                backup VM on homelab1 (bpg VM resource + cloud-init snippets)
+  router.tf                lab subnet router/NAT VM (two IPs on one vNIC)
   variables.tf             all input variables
   terraform.tfvars         live values (gitignored)
   terraform.tfvars.example documented example values
@@ -62,6 +65,17 @@ silently targets homelab2 instead.
   timeout). **`tags = ["ansible", "backup"]`** drive the Ansible dynamic
   inventory grouping (`tag_backup`).
 
+### router VM (router.tf)
+- `proxmox_virtual_environment_file.router_cloud_init` — ubuntu user +
+  `qemu-guest-agent`. Forwarding/nftables are Ansible's (`roles/router`).
+- `proxmox_virtual_environment_file.router_network_config` — cloud-init v2
+  network-config putting **two addresses on one NIC** (`router_lan_ip` +
+  `router_lab_ip`), single default route via the Deco.
+- `proxmox_virtual_environment_vm.router` — VM ID 204,
+  **`tags = ["ansible", "router"]`** → `tag_router` group. NIC MAC pinned
+  (`router_mac_address`) so the Deco can reserve the LAN address.
+  Gateway for the routed lab subnet; see [`../lab-subnet.md`](../lab-subnet.md).
+
 ## Key Variables (variables.tf)
 
 | Variable | Default | Notes |
@@ -86,6 +100,16 @@ silently targets homelab2 instead.
 | `backup_vm_id` | `300` | Proxmox VM ID |
 | `backup_cpu_cores` / `backup_memory_mb` / `backup_disk_gb` | `2` / `2048` / `100` | sizing; disk is the backup store itself |
 | `backup_static_ip` / `_gateway` / `_nameserver` | `""` / `""` / `8.8.8.8` | empty = DHCP |
+| `docker_*` / `nginx_internal_*` | see file | same sizing + static-IP pattern per VM |
+| `router_vm_id` | `204` | lab router VM |
+| `router_lan_ip` | `192.168.68.100/22` | LAN-side address; below the Deco DHCP pool (starts `.50`) |
+| `router_mac_address` | `BC:24:11:00:02:04` | pinned NIC MAC for the Deco address reservation |
+| `router_lab_ip` | `10.10.10.1/24` | lab-side gateway address, same vNIC |
+| `router_lan_gateway` | `192.168.68.1` | router VM's only default route |
+| `router_cpu_cores` / `router_memory_mb` / `router_disk_gb` | `1` / `1024` / `10` | sizing |
+
+A VM joins the lab subnet by pointing its existing `*_static_ip` / `*_gateway`
+at the lab range — no new Terraform resources.
 
 ## Provider Config (main.tf)
 
@@ -130,3 +154,10 @@ provider "proxmox" {
   querying its own `/api2/json/nodes` — hence a second provider alias, a
   second SSH `node` block, and a second API token, all scoped to homelab1
   only.
+- The router VM carries both subnets on ONE vNIC because no host has a spare NIC
+  and the switch is unmanaged (no VLANs) — see [`../lab-subnet.md`](../lab-subnet.md).
+- cloud-init writes network config only on first boot: changing a `*_static_ip`
+  does not re-address an already-running VM (fix netplan in-guest).
+- LAN → lab reachability is outside Terraform: the Deco static route and address
+  reservations are set by hand in the Deco app (no API), and Macs need a local
+  route — see [`../lab-subnet.md`](../lab-subnet.md).

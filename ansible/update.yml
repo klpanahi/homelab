@@ -4,6 +4,9 @@
 #
 # Uses serial: 1 so VMs update one at a time — avoids taking everything offline
 # simultaneously if a service restart is triggered mid-upgrade.
+#
+# Note: this includes the lab router VM, so a reboot here briefly cuts lab-subnet
+# traffic (docs/lab-subnet.md).
 
 - name: Update packages on all managed VMs
   hosts: tag_ansible

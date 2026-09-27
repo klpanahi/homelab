@@ -13,13 +13,17 @@ Architecture, infrastructure, and dependency details live in token-lean codemaps
 - [`docs/CODEMAPS/ansible.md`](docs/CODEMAPS/ansible.md) — dynamic inventory, tag groups, playbook, roles
 - [`docs/CODEMAPS/dependencies.md`](docs/CODEMAPS/dependencies.md) — providers, collections, external services, runtime requirements
 
+Design notes that are not a system map live alongside them:
+
+- [`docs/lab-subnet.md`](docs/lab-subnet.md) — the routed lab subnet: why L3-only, address plan, bring-up, migration traps
+
 **After making code changes, update the codemaps** by running `/ecc:update-codemaps` in Claude Code.
 
 ---
 
 ## Why Proxmox
 
-Designed for headless, always-on server use with a full REST API (usable with Terraform), native backup scheduling and PBS integration, and equal support for Linux VMs, Windows VMs, and LXC containers. Each machine manages its own VMs independently — the 2-node cluster is for unified UI visibility, not live migration or shared storage.
+Designed for headless, always-on server use with a full REST API (usable with Terraform), native backup scheduling and PBS integration, and equal support for Linux VMs, Windows VMs, and LXC containers. Each machine manages its own VMs independently. The two hosts are **standalone, not clustered**: each has its own API and token (homelab1 rejects homelab2's), so Terraform reaches homelab1 through its own provider alias and Ansible through its own inventory source. No live migration or shared storage.
 
 ---
 
@@ -44,6 +48,42 @@ The QEMU guest agent must be installed (`apt install qemu-guest-agent && systemc
 - ZeroTier installed on all VMs + laptop — SSH and Ansible/Terraform traverse ZeroTier only
 - UFW default: deny inbound, allow outgoing, SSH allowed from ZeroTier subnet only
 - Public services: Cloudflare Tunnel (outbound-only, zero open inbound ports)
+- Lab VMs: addresses from `10.10.10.0/24`, routed and NAT'd by the router VM (see below). The Deco LAN is a **/22** (`192.168.68.1`–`192.168.71.254`), not a /24
+- Deco address reservations must be **inside** its DHCP pool (`192.168.68.50`–`192.168.71.250`) — there is no "static space below the pool" on this router. Stable addresses are in-pool and held by a MAC reservation: `homelab1` `.75`, `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`. `docker`/`nginx-cloudflared`/`nginx-internal` are **unreserved** dynamic leases, which is the root of the recurring mDNS breakage (see the `fix-homelab-mdns` skill)
+
+---
+
+## Why the Lab Subnet is Routed, Not VLAN'd
+
+Lab VMs need addresses outside the range the Deco hands household devices. The
+obvious answer — a VLAN — is unavailable: the switch is unmanaged (no tagging),
+and neither Proxmox host has a spare NIC to dedicate to lab traffic. Buying a
+cheap managed switch was evaluated and deferred; nothing here needed new hardware.
+
+So separation is **layer 3 only**. Lab VMs stay on `vmbr0`, on the same broadcast
+domain as the rest of the house, but carry `10.10.10.0/24` addresses and route
+through a small router VM that masquerades onto the LAN. The router holds both a
+LAN and a lab address on one vNIC — "router on a stick".
+
+This buys a predictable address plan, not a security boundary: any LAN device can
+still reach lab VMs at layer 2. Real isolation means a managed switch and VLANs.
+
+Consequences worth remembering, with the full runbook in
+[`docs/lab-subnet.md`](docs/lab-subnet.md):
+
+- **No DHCP server on the lab subnet** — it would share a broadcast domain with
+  the Deco's and hand lab leases to household devices. Lab addresses are static.
+- **mDNS crosses the subnet boundary.** avahi advertises whichever address a host
+  actually holds, so moving a VM changes what its `.local` name resolves to for
+  *every* LAN host. nginx pins upstream addresses at parse time, so move the
+  party-time chain together or not at all.
+- **The Deco static route only works for some devices.** The Deco routes
+  `10.10.10.0/24 → 192.168.68.100` (interface LAN), but its hardware path stalls
+  hairpinned connections after ~10 packets. Linux and Windows escape by following
+  its ICMP redirects; macOS and iOS ignore redirects and stall. So every Mac —
+  including the Ansible control machine, whose lab-VM `ansible_host` is a
+  `10.10.10.x` address — needs its own route, and iPhones need DHCP option 121.
+- The router VM is excluded from the avahi play; it is addressed by static IP.
 
 ---
 
@@ -66,5 +106,13 @@ The QEMU guest agent must be installed (`apt install qemu-guest-agent && systemc
 ## Open Decisions
 
 - Which services run on which machine; split for redundancy vs. single host with cross-machine backup
-- DNS strategy for internal service discovery (Pi-hole or similar)
+- DNS strategy for internal service discovery. Direction settled, not yet built:
+  dnsmasq on the lab router VM, authoritative for a private zone with records in
+  git, replacing mDNS for anything on the lab subnet — see
+  [`docs/lab-subnet.md`](docs/lab-subnet.md) ("Where this is heading"). Pi-hole is
+  dnsmasq with a UI and can take that role later. Open sub-questions: which zone
+  name, and whether the LAN side resolves it via per-host resolver config or by
+  pointing the Deco's DNS at the router. The same dnsmasq could serve LAN DHCP
+  with option 121, which would give every device (phones included) the lab route —
+  but only if the Deco's DHCP server can be turned off
 - Monitoring and alerting (Grafana + Prometheus is a natural fit)

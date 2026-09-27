@@ -17,8 +17,13 @@ ansible/
     all/vars.yml           # non-secret shared vars (optional)
     all/vault.yml          # GITIGNORED — vaulted proxmox_token_secret
     tag_nginx.yml          # nginx role variables
+    tag_router.yml         # lab router/NAT variables
+  roles/router/            # repo-owned role (lab router: forwarding + nftables)
   site.yml                 # top-level playbook
 ```
+
+`ansible/roles/` is where galaxy installs land and is gitignored, *except* for
+roles written in this repo — `roles/router/` is re-included in `.gitignore`.
 
 ## One-time setup
 
@@ -63,6 +68,15 @@ ansible-playbook site.yml
 
 ## Notes
 
+- The `tag_router` play configures the lab subnet gateway (IP forwarding +
+  nftables masquerade). It needs the `ansible.posix` collection for the `sysctl`
+  module — Homebrew's Ansible already bundles it (and `community.proxmox`), so
+  `ansible/collections/` can stay empty. See [`../docs/lab-subnet.md`](../docs/lab-subnet.md).
+- `ansible_host` is whatever address the guest agent reports. The router reports
+  its LAN IP first, so it needs nothing special — but a VM that lives only on
+  `10.10.10.0/24` is reachable from a Mac control machine **only with a local
+  route** via `192.168.68.100`. The Deco's static route is not enough: it stalls
+  sustained connections from macOS, so SSH sessions hang once output flows.
 - Connectivity is over the LAN IP the QEMU guest agent reports. ZeroTier-based
   access can be layered on later as its own play/group.
 - The `community.proxmox.proxmox` plugin replaces the deprecated

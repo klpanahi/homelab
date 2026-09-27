@@ -1,0 +1,52 @@
+---
+# Turns the router VM into an L3 gateway for the lab subnet: kernel forwarding
+# plus an nftables ruleset that masquerades lab traffic onto the LAN.
+#
+# Addressing is NOT handled here — Terraform's cloud-init network-config owns the
+# two IPs on the single NIC (see terraform/router.tf).
+
+- name: Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+    update_cache: true
+
+# ufw would fight nftables for the same ruleset. This VM is a dedicated router,
+# so remove it rather than trying to keep the two in sync.
+- name: Remove ufw (nftables owns the firewall on this host)
+  ansible.builtin.apt:
+    name: ufw
+    state: absent
+    purge: true
+
+- name: Enable IPv4 forwarding and disable ICMP redirects
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-lab-router.conf
+    sysctl_set: true
+    reload: true
+  loop:
+    # Without this the VM drops anything not addressed to itself.
+    - { name: net.ipv4.ip_forward, value: "1" }
+    # Lab and LAN share one NIC, so forwarded traffic leaves the interface it
+    # arrived on. Don't hand out redirects that would route lab hosts around us.
+    - { name: net.ipv4.conf.all.send_redirects, value: "0" }
+    - { name: net.ipv4.conf.default.send_redirects, value: "0" }
+
+- name: Install nftables ruleset
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: "0755"
+    # Reject a broken ruleset before it can be written and loaded.
+    validate: /usr/sbin/nft --check --file %s
+  notify: Reload nftables
+
+- name: Enable and start nftables
+  ansible.builtin.systemd:
+    name: nftables
+    enabled: true
+    state: started

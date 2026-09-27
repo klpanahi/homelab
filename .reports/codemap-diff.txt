@@ -1,53 +1,43 @@
-Codemap scan: 2026-06-23
-Status: UPDATE (prior generation 2026-06-10)
+Codemap scan: 2026-09-27
+Status: UPDATE in place (prior report 2026-06-23; codemaps last regenerated 2026-09-13)
+Diff vs existing codemaps: small, targeted (<30%) -> updated in place per skill rules
 
-Files scanned: 14
-  terraform/main.tf
-  terraform/homelab2.tf
-  terraform/nginx.tf            (NEW)
-  terraform/variables.tf
-  terraform/terraform.tfvars.example
-  README.md
-  agent.md
-  ansible/ansible.cfg           (NEW)
-  ansible/requirements.yml      (NEW)
-  ansible/inventory/proxmox.yml (NEW)
-  ansible/site.yml              (NEW)
-  ansible/group_vars/all/vars.yml      (NEW)
-  ansible/group_vars/tag_nginx.yml     (NEW)
-  ansible/README.md             (NEW)
+Project type: infrastructure-as-code (Terraform + Ansible), no application source
+Files scanned: 38 tracked (terraform 9, ansible 26, README.md, agent.md, docs/lab-subnet.md)
 
 Codemaps written:
-  docs/CODEMAPS/architecture.md   — added Ansible config layer + nginx VM, updated provisioning flow
-  docs/CODEMAPS/infrastructure.md — added nginx.tf resources + nginx variables
-  docs/CODEMAPS/ansible.md        — NEW: dynamic inventory, tag groups, playbook, role
-  docs/CODEMAPS/dependencies.md   — Ansible collection/role now wired up (was "planned")
+  docs/CODEMAPS/architecture.md   - LAN->lab access: Deco static route + per-OS behaviour
+  docs/CODEMAPS/infrastructure.md - note: Deco route/reservations are outside Terraform (no API)
+  docs/CODEMAPS/ansible.md        - control-machine reachability of lab VMs; collections source
+  docs/CODEMAPS/dependencies.md   - homelab1 added as external service; cloud image scope
+                                    corrected; Deco static route; Mac route requirement
 
-Changes since last scan:
-  ADDED  terraform/nginx.tf — Ubuntu 24.04 nginx VM (VM ID 201) via bpg VM
-         resource; cloud-init bootstraps ubuntu user + qemu-guest-agent only;
-         VM tagged ["ansible","nginx"] for inventory grouping.
-  ADDED  nginx_* variables in variables.tf (vm_id, cpu, memory, disk, ssh key,
-         static_ip/gateway/nameserver).
-  ADDED  ansible/ layer — Proxmox dynamic inventory (community.proxmox.proxmox)
-         grouping by tag; geerlingguy.nginx role; vault for token secret.
-  CHANGED cloud-init: nginx removed (now Ansible-owned); guest agent retained.
+Changes since last report (2026-06-23):
+  ADDED   terraform/docker.tf, nginx-internal.tf        - docker + LAN-only nginx VMs (202, 203)
+  ADDED   terraform/backup.tf                           - backup VM 300 on homelab1 via proxmox.homelab1 alias
+  ADDED   terraform/router.tf                           - lab router VM 204: .100/22 + 10.10.10.1/24 on one vNIC
+  ADDED   ansible/inventory/homelab1.proxmox.yml        - second dynamic inventory source (standalone host)
+  ADDED   ansible/roles/backup/, ansible/roles/router/  - first repo-owned roles (tracked via .gitignore negations)
+  ADDED   ansible/group_vars/tag_router.yml, tag_docker.yml, tag_nginx_internal.yml
+  ADDED   docs/lab-subnet.md                            - routed lab subnet design + runbook
+  CHANGED ansible.cfg inventory -> directory (inventory/)
+  CHANGED .gitignore: ansible/roles/* + !negations (replaces blanket ignore / git add -f)
+  REMOVED deploy/party-time.yml (handed back to the party-time repo)
 
 New dependencies:
-  - community.proxmox (Ansible collection) — dynamic inventory plugin
-  - geerlingguy.nginx (Ansible Galaxy role)
-  - Ubuntu cloud-images (nginx VM base image)
+  - Proxmox VE homelab1 (192.168.68.75) as a second, standalone Terraform/Ansible target
+  - nftables on the router VM (roles/router)
+  - TP-Link Deco static route 10.10.10.0/24 -> 192.168.68.100 (manual, no API)
 
 Architecture changes:
-  - New configuration layer: Ansible configures VMs post-provision over LAN SSH
-  - New running VM: nginx (201) joining homeassistant (200) on node homelab2
-  - Terraform/Ansible split: TF owns VM lifecycle + tags; Ansible owns in-guest config
-
-Notes:
-  - Scope grew >30% (new Ansible layer + nginx VM); changes are additive, no
-    curated content removed.
-  - Inventory token secret read via ansible.builtin.unvault lookup on
-    group_vars/all/vault.yml (inventory loads before group_vars).
+  - Routed lab subnet 10.10.10.0/24 on the shared L2 segment; router VM NATs it onto the LAN
+  - LAN->lab: works for Linux/Windows via ICMP redirect; macOS/iOS stall on the Deco's
+    hairpin path (measured 2026-09-27) -> per-Mac routes now, DHCP option 121 later
 
 Staleness warnings:
-  - None (all codemaps regenerated 2026-06-23).
+  - No tracked doc is older than 90 days (oldest: 2026-09-19).
+  - FIXED agent.md claimed a "2-node cluster"; hosts are standalone (own API/token each).
+  - OVER BUDGET (skill target <1000 tokens each):
+      ansible.md ~1680, infrastructure.md ~1550, architecture.md ~1070.
+    Growth came mostly from the backup-service PR. Trimming would change >30% of
+    those files, which needs owner approval before overwriting — not done here.

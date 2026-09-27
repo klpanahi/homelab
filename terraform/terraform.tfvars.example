@@ -4,7 +4,7 @@ proxmox_node      = "homelab2"
 haos_version      = "17.3"   # check https://github.com/home-assistant/operating-system/releases
 
 # Static IP for Home Assistant — leave haos_static_ip empty to keep DHCP
-haos_static_ip     = "192.168.68.100/24"
+haos_static_ip     = "192.168.68.60/24"   # Deco address reservation on haos_mac_address
 haos_gateway       = "192.168.68.1"
 haos_nameserver    = "8.8.8.8"
 # haos_network_iface = "enp0s18"   # default; Q35 machine with virtio NIC
@@ -37,3 +37,30 @@ proxmox_homelab1_node = "homelab1"
 # backup_static_ip  = "192.168.68.104/24"   # leave empty to use DHCP
 # backup_gateway    = "192.168.68.1"
 # backup_nameserver = "8.8.8.8"
+
+# ── lab router / NAT gateway (VM 204) ─────────────────────────────────────────
+# Routes the lab subnet onto the LAN. Defaults below match variables.tf, so all
+# of these can be omitted. Design + runbook: docs/lab-subnet.md
+#
+# NOTE the Deco LAN is a /22 (192.168.68.1–192.168.71.254), not a /24. Its DHCP pool
+# is 192.168.68.50–192.168.71.250 and it only accepts address reservations INSIDE
+# that range, so router_lan_ip is in-pool and depends on a Deco reservation bound to
+# router_mac_address. Create that reservation before applying — without it the Deco
+# will eventually lease the address away and take the lab subnet down.
+# router_lan_ip       = "192.168.68.100/22"
+# router_mac_address  = "BC:24:11:00:02:04"   # reserve this MAC in the Deco app
+# router_lan_gateway  = "192.168.68.1"
+# router_lab_ip      = "10.10.10.1/24"      # gateway address lab VMs point at
+# router_nameserver  = "8.8.8.8"
+# router_vm_id       = 204
+# router_cpu_cores   = 1
+# router_memory_mb   = 1024
+# router_disk_gb     = 10
+
+# Putting a VM on the lab subnet needs no new Terraform — just point its existing
+# static-IP vars at the lab range, e.g.:
+# docker_static_ip = "10.10.10.20/24"
+# docker_gateway   = "10.10.10.1"
+#
+# For a VM that is already running, changing these alone is NOT enough — cloud-init
+# writes network config once. See "Moving an existing VM" in docs/lab-subnet.md.
