@@ -43,7 +43,7 @@ can't take the backups down along with the things they back up.
 - VMs: `vmbr0` bridge → home network, DHCP from Deco
 - Deco DHCP pool: `192.168.68.50`–`192.168.71.250`; reservations are only accepted
   **inside** that range, so stable addresses are in-pool + MAC-reserved
-- Reserved today: `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`.
+- Reserved today: `homelab1` `.75`, `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`.
   `nginx-cloudflared` `.77`, `docker` `.78`, `nginx-internal` `.85` are unreserved
 - Remote access: ZeroTier mesh VPN (planned on VMs); Ansible currently over LAN
 - UFW on each VM: deny inbound except ZeroTier subnet port 22 (planned)

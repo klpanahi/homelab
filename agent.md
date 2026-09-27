@@ -49,7 +49,7 @@ The QEMU guest agent must be installed (`apt install qemu-guest-agent && systemc
 - UFW default: deny inbound, allow outgoing, SSH allowed from ZeroTier subnet only
 - Public services: Cloudflare Tunnel (outbound-only, zero open inbound ports)
 - Lab VMs: addresses from `10.10.10.0/24`, routed and NAT'd by the router VM (see below). The Deco LAN is a **/22** (`192.168.68.1`–`192.168.71.254`), not a /24
-- Deco address reservations must be **inside** its DHCP pool (`192.168.68.50`–`192.168.71.250`) — there is no "static space below the pool" on this router. Stable addresses are in-pool and held by a MAC reservation: `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`. `docker`/`nginx-cloudflared`/`nginx-internal` are **unreserved** dynamic leases, which is the root of the recurring mDNS breakage (see the `fix-homelab-mdns` skill)
+- Deco address reservations must be **inside** its DHCP pool (`192.168.68.50`–`192.168.71.250`) — there is no "static space below the pool" on this router. Stable addresses are in-pool and held by a MAC reservation: `homelab1` `.75`, `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`. `docker`/`nginx-cloudflared`/`nginx-internal` are **unreserved** dynamic leases, which is the root of the recurring mDNS breakage (see the `fix-homelab-mdns` skill)
 
 ---
 

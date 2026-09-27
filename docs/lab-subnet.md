@@ -47,10 +47,12 @@ actually guaranteed:
 
 | Host | Address | Reserved |
 |---|---|---|
+| `homelab1` (Proxmox node) | `192.168.68.75` | yes |
 | `homelab2` (Proxmox node) | `192.168.68.65` | yes |
 | `homeassistant` (VM 200) | `192.168.68.60` | yes |
 | `router` (VM 204) | `192.168.68.100` | yes — MAC `BC:24:11:00:02:04` |
 | `nginx-cloudflared`, `docker`, `nginx-internal` | `.77`, `.78`, `.85` | **no** — plain dynamic leases |
+| `backup` (VM 300, on homelab1) | DHCP | **no** |
 
 Those three unreserved VMs are exactly the mDNS "lease moved" failure mode the
 [`fix-homelab-mdns`](../.claude/skills/fix-homelab-mdns/SKILL.md) skill documents
@@ -62,7 +64,7 @@ to this change, but it is the cheap fix for a recurring outage.
                         │
                  unmanaged switch
                    │         │
-         homelab (host 1)   homelab2 (host 2)
+      homelab1 (.75)       homelab2 (.65)
                    │         │
                  vmbr0     vmbr0          ← one flat L2 segment
                    │         │
@@ -217,7 +219,14 @@ time, and refuses to start when that fails, so a half-moved chain takes the site
 down until a human intervenes (see `.claude/skills/fix-homelab-mdns`).
 
 Therefore: move the party-time chain (`docker`, `nginx-cloudflared`,
-`nginx-internal`) **together in one window**, or leave it on the LAN. If a
+`nginx-internal`) **together in one window**, or leave it on the LAN.
+
+The chain has a fourth consumer that does not move with it: the **backup VM on
+homelab1** reaches Postgres over SSH at `backup_docker_host: docker.local`
+(`ansible/roles/backup/defaults/main.yml`). Move `docker` without giving the backup
+VM a route (below), or without repointing that variable, and nightly Postgres
+backups start failing quietly — the kind of breakage nobody notices until a
+restore is needed. If a
 consumer of a `.local` name must stay on the LAN, give it a route of its own:
 
 ```yaml
@@ -235,12 +244,19 @@ re-resolves the pinned upstream addresses.
 Home Assistant stays on the LAN regardless: it depends on mDNS/SSDP discovery of
 IoT devices that live there.
 
-## Lab VMs on the other Proxmox host
+## Lab VMs on homelab1
 
-Host 1 is not managed by Terraform. Create the VM in the Proxmox UI on `vmbr0`,
-then set the address inside the guest — do **not** use Proxmox's cloud-init IP
-fields on Ubuntu 24.04, since the generated config renames the NIC to `eth0` and
-silently fails (same reason this repo ships its own network-config snippets):
+homelab1 is a standalone Proxmox host with its own Terraform provider alias
+(`proxmox.homelab1`, introduced by `terraform/backup.tf`). A lab VM there is an
+ordinary Terraform VM that binds **every** resource to that alias — one that forgets
+silently lands on homelab2 — with lab values for its `*_static_ip` / `*_gateway`.
+It reaches the router over the physical switch, since both hosts' `vmbr0` bridges
+share the one flat segment. Follow `backup.tf` as the template.
+
+For a VM created by hand in the Proxmox UI instead, set the address inside the
+guest — do **not** use Proxmox's cloud-init IP fields on Ubuntu 24.04, since the
+generated config renames the NIC to `eth0` and silently fails (same reason this
+repo ships its own network-config snippets):
 
 ```yaml
 # /etc/netplan/50-lab.yaml
