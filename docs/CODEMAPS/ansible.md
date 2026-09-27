@@ -1,4 +1,4 @@
-<!-- Generated: 2026-09-13 | Files scanned: 12 | Token estimate: ~640 -->
+<!-- Generated: 2026-09-27 | Files scanned: 26 | Token estimate: ~1680 -->
 
 # Ansible Configuration
 
@@ -188,6 +188,10 @@ ansible-playbook site.yml
 ## Notes
 
 - Connectivity over the IP the guest agent reports; ZeroTier can layer on later.
-  A VM on `10.10.10.0/24` is only reachable if the control machine has a route via
-  the router VM (`192.168.68.100`) — see [`../lab-subnet.md`](../lab-subnet.md).
+  The router reports its LAN IP first, so it needs no route. A VM only on
+  `10.10.10.0/24` needs a local route on a Mac control machine via
+  `192.168.68.100` — the Deco's static route stalls sustained macOS connections —
+  see [`../lab-subnet.md`](../lab-subnet.md).
+- Collections resolve from Homebrew's bundled Ansible (`ansible.posix`,
+  `community.proxmox`, `community.docker`); `ansible/collections/` is empty.
 - `community.proxmox.proxmox` replaces the deprecated `community.general.proxmox`.

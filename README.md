@@ -91,14 +91,16 @@ See [`ansible/README.md`](ansible/README.md) for details.
 ### 3. (Optional) Reach the lab subnet
 
 Lab VMs live on `10.10.10.0/24`, routed by the `router` VM at `192.168.68.100`.
-The control machine needs a route before it can reach them:
+The Deco carries a static route for it, which is enough for Linux and Windows
+machines. **A Mac needs its own route** — the Deco's route stalls real transfers for
+macOS and iOS:
 
 ```bash
 sudo route -n add -net 10.10.10.0/24 192.168.68.100
 ```
 
-See [`docs/lab-subnet.md`](docs/lab-subnet.md) for the design, bring-up, and the
-traps involved in moving an existing VM onto it.
+See [`docs/lab-subnet.md`](docs/lab-subnet.md) for why, how to persist the route, the
+design and bring-up, and the traps involved in moving an existing VM onto it.
 
 ---
 

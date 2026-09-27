@@ -23,7 +23,7 @@ Design notes that are not a system map live alongside them:
 
 ## Why Proxmox
 
-Designed for headless, always-on server use with a full REST API (usable with Terraform), native backup scheduling and PBS integration, and equal support for Linux VMs, Windows VMs, and LXC containers. Each machine manages its own VMs independently — the 2-node cluster is for unified UI visibility, not live migration or shared storage.
+Designed for headless, always-on server use with a full REST API (usable with Terraform), native backup scheduling and PBS integration, and equal support for Linux VMs, Windows VMs, and LXC containers. Each machine manages its own VMs independently. The two hosts are **standalone, not clustered**: each has its own API and token (homelab1 rejects homelab2's), so Terraform reaches homelab1 through its own provider alias and Ansible through its own inventory source. No live migration or shared storage.
 
 ---
 
@@ -77,8 +77,12 @@ Consequences worth remembering, with the full runbook in
   actually holds, so moving a VM changes what its `.local` name resolves to for
   *every* LAN host. nginx pins upstream addresses at parse time, so move the
   party-time chain together or not at all.
-- **The control machine needs a route** (`10.10.10.0/24 via 192.168.68.100`) —
-  otherwise Ansible's dynamic inventory resolves lab VMs to unreachable IPs.
+- **The Deco static route only works for some devices.** The Deco routes
+  `10.10.10.0/24 → 192.168.68.100` (interface LAN), but its hardware path stalls
+  hairpinned connections after ~10 packets. Linux and Windows escape by following
+  its ICMP redirects; macOS and iOS ignore redirects and stall. So every Mac —
+  including the Ansible control machine, whose lab-VM `ansible_host` is a
+  `10.10.10.x` address — needs its own route, and iPhones need DHCP option 121.
 - The router VM is excluded from the avahi play; it is addressed by static IP.
 
 ---
@@ -108,5 +112,7 @@ Consequences worth remembering, with the full runbook in
   [`docs/lab-subnet.md`](docs/lab-subnet.md) ("Where this is heading"). Pi-hole is
   dnsmasq with a UI and can take that role later. Open sub-questions: which zone
   name, and whether the LAN side resolves it via per-host resolver config or by
-  pointing the Deco's DNS at the router
+  pointing the Deco's DNS at the router. The same dnsmasq could serve LAN DHCP
+  with option 121, which would give every device (phones included) the lab route —
+  but only if the Deco's DHCP server can be turned off
 - Monitoring and alerting (Grafana + Prometheus is a natural fit)

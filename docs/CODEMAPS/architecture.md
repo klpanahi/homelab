@@ -1,4 +1,4 @@
-<!-- Generated: 2026-09-13 | Files scanned: 16 | Token estimate: ~560 -->
+<!-- Generated: 2026-09-27 | Files scanned: 38 | Token estimate: ~1070 -->
 
 # Homelab Architecture
 
@@ -45,6 +45,10 @@ can't take the backups down along with the things they back up.
   **inside** that range, so stable addresses are in-pool + MAC-reserved
 - Reserved today: `homelab1` `.75`, `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`.
   `nginx-cloudflared` `.77`, `docker` `.78`, `nginx-internal` `.85` are unreserved
+- LAN → lab: Deco static route `10.10.10.0/24 → 192.168.68.100` (interface LAN).
+  Linux/Windows work (follow the Deco's ICMP redirect, bypass it); macOS/iOS ignore
+  redirects and stall after ~10 packets on the Deco's hairpin path → Macs need a
+  local route, iPhones need DHCP option 121 (future) — see [`../lab-subnet.md`](../lab-subnet.md)
 - Remote access: ZeroTier mesh VPN (planned on VMs); Ansible currently over LAN
 - UFW on each VM: deny inbound except ZeroTier subnet port 22 (planned)
 - Public services: Cloudflare Tunnel (outbound-only, no open ports — planned)

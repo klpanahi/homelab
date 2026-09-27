@@ -1,4 +1,4 @@
-<!-- Generated: 2026-09-13 | Files scanned: 8 | Token estimate: ~680 -->
+<!-- Generated: 2026-09-27 | Files scanned: 9 | Token estimate: ~1550 -->
 
 # Terraform Infrastructure
 
@@ -158,3 +158,6 @@ provider "proxmox" {
   and the switch is unmanaged (no VLANs) — see [`../lab-subnet.md`](../lab-subnet.md).
 - cloud-init writes network config only on first boot: changing a `*_static_ip`
   does not re-address an already-running VM (fix netplan in-guest).
+- LAN → lab reachability is outside Terraform: the Deco static route and address
+  reservations are set by hand in the Deco app (no API), and Macs need a local
+  route — see [`../lab-subnet.md`](../lab-subnet.md).

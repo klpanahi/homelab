@@ -69,11 +69,14 @@ ansible-playbook site.yml
 ## Notes
 
 - The `tag_router` play configures the lab subnet gateway (IP forwarding +
-  nftables masquerade). It needs the `ansible.posix` collection from
-  `requirements.yml` for the `sysctl` module. See [`../docs/lab-subnet.md`](../docs/lab-subnet.md).
-- `ansible_host` is whatever address the guest agent reports, so once a VM moves
-  to `10.10.10.0/24` the control machine needs a route to that subnet via the
-  router VM (`192.168.68.100`) or every task fails as unreachable.
+  nftables masquerade). It needs the `ansible.posix` collection for the `sysctl`
+  module — Homebrew's Ansible already bundles it (and `community.proxmox`), so
+  `ansible/collections/` can stay empty. See [`../docs/lab-subnet.md`](../docs/lab-subnet.md).
+- `ansible_host` is whatever address the guest agent reports. The router reports
+  its LAN IP first, so it needs nothing special — but a VM that lives only on
+  `10.10.10.0/24` is reachable from a Mac control machine **only with a local
+  route** via `192.168.68.100`. The Deco's static route is not enough: it stalls
+  sustained connections from macOS, so SSH sessions hang once output flows.
 - Connectivity is over the LAN IP the QEMU guest agent reports. ZeroTier-based
   access can be layered on later as its own play/group.
 - The `community.proxmox.proxmox` plugin replaces the deprecated

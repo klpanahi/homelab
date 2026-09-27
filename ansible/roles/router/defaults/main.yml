@@ -10,9 +10,10 @@ router_lab_subnet: 10.10.10.0/24
 router_lan_subnet: 192.168.68.0/22
 
 # Masquerade lab traffic bound for LAN hosts as well as for the internet.
-# Keep true unless the Deco has a static route 10.10.10.0/24 -> router_lan_ip;
-# without that route a LAN host has no way to answer a 10.10.10.x source address.
-# Setting this false preserves real lab source IPs on LAN-bound traffic.
+# Setting this false preserves real lab source IPs on LAN-bound traffic, but then
+# LAN hosts must answer 10.10.10.x addresses through their default gateway. On a
+# consumer router that hairpins badly (the Deco stalls such flows for macOS/iOS),
+# that breaks; with true, replies go to router_lan_ip directly on the LAN.
 router_masquerade_to_lan: true
 
 # Subnets allowed to SSH into the router VM itself (Ansible control machine and
