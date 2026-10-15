@@ -24,6 +24,8 @@ ansible/collections/
 ansible/roles/*
 !ansible/roles/backup/
 !ansible/roles/router/
+!ansible/roles/immich/
+!ansible/roles/restic_server/
 
 # Credentials — never commit. Only *.example files are tracked.
 *.tfvars

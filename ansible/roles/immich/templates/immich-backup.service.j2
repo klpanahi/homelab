@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up Immich libraries with restic
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/bin/immich-backup.sh

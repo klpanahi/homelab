@@ -1,0 +1,98 @@
+---
+# Skipped (with a message) until the backup disk exists, so the docker play keeps
+# working for party-time before `terraform apply` has added the disk.
+- name: Look for the restic backup disk
+  ansible.builtin.stat:
+    path: "{{ restic_server_device }}"
+  register: restic_server_disk
+
+- name: Report a missing backup disk
+  ansible.builtin.debug:
+    msg: >-
+      {{ restic_server_device }} not found; skipping the restic server. Set
+      dockerrestic_server_disk_gb and run terraform apply first.
+  when: not restic_server_disk.stat.exists
+
+- name: Set up the restic server
+  when: restic_server_disk.stat.exists
+  block:
+    # Only creates a filesystem on a blank device; an existing one is left alone.
+    - name: Create a filesystem on the backup disk
+      community.general.filesystem:
+        dev: "{{ restic_server_device }}"
+        fstype: ext4
+
+    - name: Mount the backup disk
+      ansible.posix.mount:
+        path: "{{ restic_server_data }}"
+        src: "{{ restic_server_device }}"
+        fstype: ext4
+        opts: defaults,noatime
+        state: mounted
+
+    - name: Install htpasswd
+      ansible.builtin.apt:
+        name: apache2-utils
+        state: present
+        update_cache: true
+
+    # rest-server reads <data>/.htpasswd and wants bcrypt entries.
+    - name: Create the restic server password file
+      ansible.builtin.copy:
+        dest: "{{ restic_server_data }}/.htpasswd"
+        content: ""
+        force: false
+        mode: "0600"
+
+    # htpasswd -v exits 0 when the password already matches, so a login is
+    # only rewritten when it is missing or different.
+    - name: Check restic server logins
+      ansible.builtin.command:
+        argv: [htpasswd, -vb, "{{ restic_server_data }}/.htpasswd", "{{ item.name }}", "{{ item.password }}"]
+      register: restic_server_logins
+      changed_when: false
+      failed_when: false
+      loop: "{{ restic_server_users }}"
+      loop_control:
+        label: "{{ item.name }}"
+      no_log: true
+
+    - name: Set restic server logins
+      ansible.builtin.command:
+        argv: [htpasswd, -bB, "{{ restic_server_data }}/.htpasswd", "{{ item.item.name }}", "{{ item.item.password }}"]
+      loop: "{{ restic_server_logins.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when: item.rc != 0
+      changed_when: true
+      no_log: true
+
+    - name: Create the restic server compose directory
+      ansible.builtin.file:
+        path: /opt/restic-server
+        state: directory
+        mode: "0755"
+
+    - name: Write the restic server compose file
+      ansible.builtin.copy:
+        dest: /opt/restic-server/compose.yml
+        mode: "0644"
+        content: |
+          # Managed by Ansible (restic_server role).
+          name: restic-server
+          services:
+            rest-server:
+              image: {{ restic_server_image }}
+              environment:
+                OPTIONS: --private-repos
+              ports:
+                - "{{ restic_server_port }}:8000"
+              volumes:
+                - {{ restic_server_data }}:/data
+              restart: always
+
+    - name: Run the restic server
+      community.docker.docker_compose_v2:
+        project_src: /opt/restic-server
+        state: present
+        pull: missing

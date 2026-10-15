@@ -23,9 +23,11 @@ Proxmox Node (homelab2, 192.168.68.65)
   └── VM: windows           (Windows VM — planned)
 
 Proxmox Node (homelab1, 192.168.68.75) — STANDALONE, not clustered with homelab2
-  └── VM 300: backup        (Ubuntu 24.04 cloud-image, bpg VM resource; pulls
-                             backups from homelab2 over the LAN — see Backup
-                             Strategy below)
+  ├── VM 300: backup        (Ubuntu 24.04 cloud-image, bpg VM resource; pulls
+  │                          backups from homelab2 over the LAN — see Backup
+  │                          Strategy below)
+  └── VM 301: immich        (Immich instances + shared ML; restic backups to
+                             the docker VM and Backblaze B2 — docs/immich.md)
 ```
 
 homelab1 and homelab2 are two independent, uncoupled Proxmox installs — homelab1's

@@ -10,3 +10,31 @@ nginx_remove_default_vhost: true
 # (deploy/nginx/admin.conf) and are applied by that repo's
 # deploy/party-time.yml. homelab only installs and baseline-configures nginx
 # here (see site.yml) — it no longer defines any party-time-specific vhost.
+
+# Personal Immich (docs/immich.md). Phones and laptops reach this through the
+# router's port 80/443 forward on 192.168.68.100 (photos.home.arpa is an alias
+# to router in ansible/dns/records.yml). LAN and WireGuard only.
+# Plain HTTP for now: home.arpa can't get a public certificate.
+nginx_vhosts:
+  - listen: "80"
+    server_name: "photos.home.arpa"
+    filename: "immich-personal.conf"
+    extra_parameters: |
+      # Settings from https://docs.immich.app/administration/reverse-proxy
+      client_max_body_size 50000M;
+      proxy_request_buffering off;
+      proxy_read_timeout 600s;
+      proxy_send_timeout 600s;
+      send_timeout 600s;
+
+      location / {
+          proxy_pass http://10.10.10.50:2283;
+          proxy_http_version 1.1;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";
+          proxy_redirect off;
+      }

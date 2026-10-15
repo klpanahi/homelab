@@ -101,6 +101,20 @@ resource "proxmox_virtual_environment_vm" "docker" {
     size         = var.docker_disk_gb
   }
 
+  # restic backup repositories for Immich, which runs on homelab1. Ansible
+  # formats and mounts it at /srv/restic (ansible/roles/restic_server).
+  dynamic "disk" {
+    for_each = var.docker_restic_disk_gb > 0 ? [var.docker_restic_disk_gb] : []
+    content {
+      datastore_id = "local-lvm"
+      interface    = "virtio1"
+      iothread     = true
+      discard      = "on"
+      file_format  = "raw"
+      size         = disk.value
+    }
+  }
+
   operating_system {
     type = "l26"
   }
