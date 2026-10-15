@@ -376,9 +376,9 @@ Remaining steps, in dependency order:
    resolves a `.local` name, avahi can come out of the `tag_ansible` play
    entirely and the `fix-homelab-mdns` failure class disappears with it.
 4. **Resolve lab names from the LAN.** Covered by step 1 once the Deco hands out
-   `192.168.68.100` as DNS. Names people open from phones should still resolve to
-   a LAN address (nginx-internal as the front door), since `10.10.10.x` stalls for
-   Apple devices without a route.
+   `192.168.68.100` as DNS. Names people open from phones resolve to the router,
+   which forwards 80/443 to nginx-internal in the lab, since `10.10.10.x` stalls
+   for Apple devices without a route.
 5. **Hand every device the lab route over DHCP (option 121).** The only fix for
    iPhones and iPads, and it retires the per-Mac routes: devices learn
    `10.10.10.0/24 via 192.168.68.100` at lease time and never hairpin through the
