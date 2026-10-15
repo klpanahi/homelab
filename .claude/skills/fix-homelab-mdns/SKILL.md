@@ -27,7 +27,7 @@ Control machine is a Mac. DHCP is served by the router at `192.168.68.1`.
 |---|---|
 | nginx-cloudflared.local | 10.10.10.10 (static, lab subnet) |
 | docker.local | 10.10.10.20 (static, lab subnet) |
-| nginx-internal.local | 192.168.68.85 (LAN, Deco reservation) |
+| nginx-internal.local | 10.10.10.40 (static, lab subnet) |
 
 Lab addresses need a route on the Mac (`10.10.10.0/24` via `192.168.68.100`); see
 `docs/lab-subnet.md`. If a VM still shows its old `192.168.68.x` lease, the cutover in

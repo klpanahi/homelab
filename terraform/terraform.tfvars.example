@@ -57,8 +57,6 @@ proxmox_homelab1_node = "homelab1"
 # router_memory_mb   = 1024
 # router_disk_gb     = 10
 
-# lab_subnet         = "10.10.10.0/24"
-
 # ── VM addresses ──────────────────────────────────────────────────────────────
 # Every VM's address is a variables.tf default, so the allocation table in
 # docs/lab-subnet.md is the source of truth and nothing needs setting here. Only
@@ -67,8 +65,10 @@ proxmox_homelab1_node = "homelab1"
 # docker_static_ip = "10.10.10.20/24"   # default
 # docker_gateway   = "10.10.10.1"
 #
-# nginx-internal stays on the LAN on purpose (DHCP + Deco reservation at .85) and
-# gets a route to lab_subnet via the router. Leave nginx_internal_static_ip empty.
+# nginx_internal_static_ip = "10.10.10.40/24"   # default; LAN clients reach it
+#                                              # via the router's port forward
 #
-# For a VM that is already running, changing these alone is NOT enough — cloud-init
-# writes network config once. See "Moving an existing VM" in docs/lab-subnet.md.
+# For a VM that is already running, changing these does NOT move it: cloud-init
+# writes network config once, and the VMs ignore initialization changes so a new
+# address can't force a rebuild. Re-address in-guest — see "Moving an existing VM"
+# in docs/lab-subnet.md.

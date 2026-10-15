@@ -108,9 +108,10 @@ design and bring-up, and the traps involved in moving an existing VM onto it.
 
 Lab VMs are addressed in git: each address below is the `*_static_ip` default in
 [`terraform/variables.tf`](terraform/variables.tf), gateway `10.10.10.1`. Nothing on
-`10.10.10.0/24` needs a Deco reservation — the Deco hands out no addresses there.
-Hosts that stay on the LAN (`192.168.68.0/22`) are held by a Deco address
-reservation instead, and that column is the complete list of reservations.
+`10.10.10.0/24` needs a Deco reservation — the Deco hands out no addresses there — so
+the router's `192.168.68.100` is the only reservation the lab needs. Adding a VM
+means adding a row here, never a trip to the Deco app. The hosts below the lab rows
+predate it and keep their existing reservations.
 
 | Host | VM | Node | Address | How it's held |
 |---|---|---|---|---|
@@ -119,8 +120,8 @@ reservation instead, and that column is the complete list of reservations.
 | `nginx-cloudflared` | 201 | homelab2 | `10.10.10.10` | Static (`nginx_static_ip`) |
 | `docker` | 202 | homelab2 | `10.10.10.20` | Static (`docker_static_ip`) |
 | `backup` | 300 | homelab1 | `10.10.10.30` | Static (`backup_static_ip`) |
-| *(free)* | | | `10.10.10.31`–`.250` | Next VM: take the next free `.x0`, add a row here |
-| `nginx-internal` | 203 | homelab2 | `192.168.68.85` | LAN, Deco reservation — wifi front door; route to the lab via `.100` |
+| `nginx-internal` | 203 | homelab2 | `10.10.10.40` | Static (`nginx_internal_static_ip`); LAN clients reach it through the router's port 80/443 forward on `.100` |
+| *(free)* | | | `10.10.10.41`–`.250` | Next VM: take the next free `.x0`, add a row here |
 | `homeassistant` | 200 | homelab2 | `192.168.68.60` | LAN, Deco reservation (MAC `BC:24:11:00:02:00`) — needs mDNS/SSDP on the LAN |
 | `homelab2` | — | — | `192.168.68.65` | LAN, Deco reservation |
 | `homelab1` | — | — | `192.168.68.75` | LAN, Deco reservation |

@@ -141,4 +141,13 @@ resource "proxmox_virtual_environment_vm" "nginx" {
     user_data_file_id    = proxmox_virtual_environment_file.nginx_cloud_init.id
     network_data_file_id = proxmox_virtual_environment_file.nginx_network_config.id
   }
+
+  # cloud-init applies network config at first boot only, and a changed snippet
+  # makes the provider REPLACE this VM — wiping its disk. The address is changed
+  # in-guest instead (docs/lab-subnet.md, "Moving an existing VM"); the snippet
+  # still decides what a deliberately rebuilt VM gets
+  # (terraform apply -replace=<this resource>).
+  lifecycle {
+    ignore_changes = [initialization]
+  }
 }

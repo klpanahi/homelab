@@ -101,8 +101,8 @@ silently targets homelab2 instead.
 | `backup_cpu_cores` / `backup_memory_mb` / `backup_disk_gb` | `2` / `2048` / `100` | sizing; disk is the backup store itself |
 | `backup_static_ip` / `_gateway` / `_nameserver` | `10.10.10.30/24` / `10.10.10.1` / `8.8.8.8` | lab address; `""` = DHCP |
 | `docker_static_ip` / `_gateway` | `10.10.10.20/24` / `10.10.10.1` | lab address |
-| `docker_*` / `nginx_internal_*` | see file | same sizing + static-IP pattern per VM; `nginx_internal_static_ip` stays `""` (LAN, DHCP + Deco reservation) |
-| `lab_subnet` | `10.10.10.0/24` | nginx-internal routes it via the router's LAN address |
+| `nginx_internal_static_ip` / `_gateway` | `10.10.10.40/24` / `10.10.10.1` | lab address |
+| `docker_*` / `nginx_internal_*` | see file | same sizing + static-IP pattern per VM |
 | `router_vm_id` | `204` | lab router VM |
 | `router_lan_ip` | `192.168.68.100/22` | LAN-side address; below the Deco DHCP pool (starts `.50`) |
 | `router_mac_address` | `BC:24:11:00:02:04` | pinned NIC MAC for the Deco address reservation |
@@ -112,7 +112,10 @@ silently targets homelab2 instead.
 
 A VM joins the lab subnet by pointing its existing `*_static_ip` / `*_gateway`
 at the lab range — no new Terraform resources. The defaults are the allocation
-table in `README.md`.
+table in `README.md`. The docker, nginx, nginx-internal and backup VMs carry
+`lifecycle { ignore_changes = [initialization] }`: a changed network snippet would
+otherwise make the provider replace the VM (and its disk), so running VMs are
+re-addressed in-guest.
 
 ## Provider Config (main.tf)
 

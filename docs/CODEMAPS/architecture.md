@@ -43,9 +43,9 @@ can't take the backups down along with the things they back up.
 - VMs: `vmbr0` bridge; lab VMs static on `10.10.10.0/24`, LAN VMs DHCP + Deco reservation
 - Deco DHCP pool: `192.168.68.50`–`192.168.71.250`; reservations are only accepted
   **inside** that range, so stable addresses are in-pool + MAC-reserved
-- Reserved: `homelab1` `.75`, `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`,
-  `nginx-internal` `.85`. `nginx-cloudflared` `10.10.10.10`, `docker` `10.10.10.20`,
-  `backup` `10.10.10.30` are static lab addresses (allocation table in `README.md`)
+- Reserved: `homelab1` `.75`, `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`.
+  `nginx-cloudflared` `10.10.10.10`, `docker` `10.10.10.20`, `backup` `10.10.10.30`,
+  `nginx-internal` `10.10.10.40` are static lab addresses (allocation table in `README.md`)
 - LAN → lab: Deco static route `10.10.10.0/24 → 192.168.68.100` (interface LAN).
   Linux/Windows work (follow the Deco's ICMP redirect, bypass it); macOS/iOS ignore
   redirects and stall after ~10 packets on the Deco's hairpin path → Macs need a

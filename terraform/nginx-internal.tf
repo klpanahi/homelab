@@ -24,24 +24,15 @@ resource "proxmox_virtual_environment_file" "nginx_internal_cloud_init" {
   }
 }
 
-# nginx-internal stays on the LAN (wifi clients reach it without a route to the
-# lab), but its upstream — the docker VM — is a lab VM. The explicit route sends
-# lab traffic straight to the router VM instead of via the Deco, whose hairpin
-# path is unreliable (docs/lab-subnet.md, "Reaching the lab from the LAN").
 locals {
-  nginx_internal_lab_route = { to = var.lab_subnet, via = split("/", var.router_lan_ip)[0] }
-
   nginx_internal_network_config = var.nginx_internal_static_ip != "" ? yamlencode({
     version = 2
     ethernets = {
       primary = {
-        match     = { name = "e*" }
-        dhcp4     = false
-        addresses = [var.nginx_internal_static_ip]
-        routes = [
-          { to = "default", via = var.nginx_internal_gateway },
-          local.nginx_internal_lab_route,
-        ]
+        match       = { name = "e*" }
+        dhcp4       = false
+        addresses   = [var.nginx_internal_static_ip]
+        routes      = [{ to = "default", via = var.nginx_internal_gateway }]
         nameservers = { addresses = [var.nginx_internal_nameserver] }
       }
     }
@@ -51,7 +42,6 @@ locals {
       primary = {
         match       = { name = "e*" }
         dhcp4       = true
-        routes      = [local.nginx_internal_lab_route]
         nameservers = { addresses = [var.nginx_internal_nameserver] }
       }
     }
@@ -114,5 +104,14 @@ resource "proxmox_virtual_environment_vm" "nginx_internal" {
   initialization {
     user_data_file_id    = proxmox_virtual_environment_file.nginx_internal_cloud_init.id
     network_data_file_id = proxmox_virtual_environment_file.nginx_internal_network_config.id
+  }
+
+  # cloud-init applies network config at first boot only, and a changed snippet
+  # makes the provider REPLACE this VM — wiping its disk. The address is changed
+  # in-guest instead (docs/lab-subnet.md, "Moving an existing VM"); the snippet
+  # still decides what a deliberately rebuilt VM gets
+  # (terraform apply -replace=<this resource>).
+  lifecycle {
+    ignore_changes = [initialization]
   }
 }
