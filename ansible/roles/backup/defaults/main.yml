@@ -21,7 +21,11 @@ backup_ha_agent_id: hassio.local
 backup_ha_create_timeout: 1800
 
 # The docker VM (homelab2) that hosts party-time-db, reached over SSH.
-backup_docker_host: docker.local
+# Its fixed lab-subnet address (docs/lab-subnet.md allocation table), not
+# docker.local: an mDNS name follows whatever address the VM holds, and a
+# failed lookup here makes the nightly dump fail quietly. Swap for the internal
+# DNS name once the lab resolver serves one.
+backup_docker_host: 10.10.10.20
 backup_docker_user: ubuntu
 
 # SSH private key used to pull the Postgres dump. Public key must be

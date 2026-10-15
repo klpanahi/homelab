@@ -15,8 +15,8 @@ nginx_ssh_public_key = "ssh-ed25519 AAAA... you@host"
 # nginx_cpu_cores  = 1            # default
 # nginx_memory_mb  = 1024         # default (1 GB)
 # nginx_disk_gb    = 20           # default
-# nginx_static_ip  = "192.168.68.101/24"   # leave empty to use DHCP + Deco MAC reservation
-# nginx_gateway    = "192.168.68.1"
+# nginx_static_ip  = "10.10.10.10/24"   # default — lab subnet, no Deco reservation needed
+# nginx_gateway    = "10.10.10.1"
 # nginx_nameserver = "8.8.8.8"
 
 # homelab1 — a SEPARATE, standalone Proxmox host (not clustered with homelab2)
@@ -34,8 +34,8 @@ proxmox_homelab1_node = "homelab1"
 # backup_cpu_cores  = 2      # default
 # backup_memory_mb  = 2048   # default (2 GB)
 # backup_disk_gb    = 100    # default
-# backup_static_ip  = "192.168.68.104/24"   # leave empty to use DHCP
-# backup_gateway    = "192.168.68.1"
+# backup_static_ip  = "10.10.10.30/24"   # default — lab subnet
+# backup_gateway    = "10.10.10.1"
 # backup_nameserver = "8.8.8.8"
 
 # ── lab router / NAT gateway (VM 204) ─────────────────────────────────────────
@@ -57,10 +57,18 @@ proxmox_homelab1_node = "homelab1"
 # router_memory_mb   = 1024
 # router_disk_gb     = 10
 
-# Putting a VM on the lab subnet needs no new Terraform — just point its existing
-# static-IP vars at the lab range, e.g.:
-# docker_static_ip = "10.10.10.20/24"
+# ── VM addresses ──────────────────────────────────────────────────────────────
+# Every VM's address is a variables.tf default, so the allocation table in
+# docs/lab-subnet.md is the source of truth and nothing needs setting here. Only
+# override to deviate from that table — and update the table if you do.
+#
+# docker_static_ip = "10.10.10.20/24"   # default
 # docker_gateway   = "10.10.10.1"
 #
-# For a VM that is already running, changing these alone is NOT enough — cloud-init
-# writes network config once. See "Moving an existing VM" in docs/lab-subnet.md.
+# nginx_internal_static_ip = "10.10.10.40/24"   # default; LAN clients reach it
+#                                              # via the router's port forward
+#
+# For a VM that is already running, changing these does NOT move it: cloud-init
+# writes network config once, and the VMs ignore initialization changes so a new
+# address can't force a rebuild. Re-address in-guest — see "Moving an existing VM"
+# in docs/lab-subnet.md.

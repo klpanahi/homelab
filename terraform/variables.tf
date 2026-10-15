@@ -105,15 +105,15 @@ variable "nginx_ssh_public_key" {
 }
 
 variable "nginx_static_ip" {
-  description = "Static IP with CIDR for the nginx VM, e.g. 192.168.68.101/24. Leave empty for DHCP."
+  description = "Static IP with CIDR for the nginx-cloudflared VM. Defaults to its lab-subnet address from the allocation table in README.md. Set to \"\" for DHCP."
   type        = string
-  default     = ""
+  default     = "10.10.10.10/24"
 }
 
 variable "nginx_gateway" {
-  description = "Gateway for nginx VM static IP (required when nginx_static_ip is set)"
+  description = "Gateway for nginx VM static IP (required when nginx_static_ip is set). The router VM's lab address for a lab VM."
   type        = string
-  default     = ""
+  default     = "10.10.10.1"
 }
 
 variable "nginx_nameserver" {
@@ -154,15 +154,15 @@ variable "docker_ssh_public_key" {
 }
 
 variable "docker_static_ip" {
-  description = "Static IP with CIDR for the docker VM, e.g. 192.168.68.102/24. Leave empty for DHCP."
+  description = "Static IP with CIDR for the docker VM. Defaults to its lab-subnet address from the allocation table in README.md. Set to \"\" for DHCP."
   type        = string
-  default     = ""
+  default     = "10.10.10.20/24"
 }
 
 variable "docker_gateway" {
-  description = "Gateway for docker VM static IP (required when docker_static_ip is set)"
+  description = "Gateway for docker VM static IP (required when docker_static_ip is set). The router VM's lab address for a lab VM."
   type        = string
-  default     = ""
+  default     = "10.10.10.1"
 }
 
 variable "docker_nameserver" {
@@ -198,15 +198,15 @@ variable "nginx_internal_disk_gb" {
 }
 
 variable "nginx_internal_static_ip" {
-  description = "Static IP with CIDR for the nginx-internal VM, e.g. 192.168.68.103/24. Leave empty for DHCP."
+  description = "Static IP with CIDR for the nginx-internal VM. Defaults to its lab-subnet address from the allocation table in README.md; LAN clients reach it through the router's port forward on 192.168.68.100. Set to \"\" for DHCP."
   type        = string
-  default     = ""
+  default     = "10.10.10.40/24"
 }
 
 variable "nginx_internal_gateway" {
-  description = "Gateway for nginx-internal VM static IP (required when nginx_internal_static_ip is set)"
+  description = "Gateway for nginx-internal VM static IP (required when nginx_internal_static_ip is set). The router VM's lab address for a lab VM."
   type        = string
-  default     = ""
+  default     = "10.10.10.1"
 }
 
 variable "nginx_internal_nameserver" {
@@ -267,15 +267,15 @@ variable "backup_disk_gb" {
 }
 
 variable "backup_static_ip" {
-  description = "Static IP with CIDR for the backup VM, e.g. 192.168.68.104/24. Leave empty for DHCP."
+  description = "Static IP with CIDR for the backup VM. Defaults to its lab-subnet address from the allocation table in README.md. Set to \"\" for DHCP."
   type        = string
-  default     = ""
+  default     = "10.10.10.30/24"
 }
 
 variable "backup_gateway" {
-  description = "Gateway for backup VM static IP (required when backup_static_ip is set)"
+  description = "Gateway for backup VM static IP (required when backup_static_ip is set). The router VM's lab address for a lab VM."
   type        = string
-  default     = ""
+  default     = "10.10.10.1"
 }
 
 variable "backup_nameserver" {
