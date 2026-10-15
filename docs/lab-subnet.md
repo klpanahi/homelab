@@ -342,7 +342,11 @@ port forward and the internal DNS records, so those must be merged first.
 2. **`terraform plan`** with this branch. It must show **no** `must be replaced`
    and no in-place change to any VM — only the `*-network-config.yaml` snippet
    files. If any VM would be replaced or updated, stop: the `ignore_changes` guard
-   is missing from it. Then `terraform apply`.
+   is missing from it. Then `terraform apply` — **only inside the window**: the
+   snippets keep their file names but change content, and if that changes the VM's
+   cloud-init instance-id, an unmoved VM's next reboot would jump it to its lab
+   address unannounced. Never rebuild `backup` to "fix" anything: its disk is the
+   dump history.
 3. **`docker` → `10.10.10.20`**, then **`nginx-cloudflared` → `10.10.10.10`**, then
    **`nginx-internal` → `10.10.10.40`**, each from its Proxmox console per
    [Moving an existing VM](#moving-an-existing-vm-onto-the-lab-subnet).
