@@ -30,10 +30,9 @@ rest of the world through a small router VM that NATs onto the LAN.
 | Deco DHCP pool | `192.168.68.50`–`192.168.71.250` | The Deco only accepts address reservations **inside** this range, so stable infrastructure addresses live in-pool and are held by a MAC reservation |
 | Lab | `10.10.10.0/24` | Gateway `10.10.10.1` (the router VM), static addresses only |
 
-| Host | Address | Role |
-|---|---|---|
-| `router` (VM 204) | `192.168.68.100/22` + `10.10.10.1/24` | Both on one vNIC; NAT gateway for the lab. MAC pinned to `BC:24:11:00:02:04` |
-| Lab VMs | `10.10.10.10`–`10.10.10.250` | Default gateway `10.10.10.1` |
+Per-host addresses — which VM sits where, on which subnet, and why — are in the
+[IP allocation table in the README](../README.md#ip-allocation). The router VM holds
+`192.168.68.100/22` and `10.10.10.1/24` on one vNIC, MAC pinned to `BC:24:11:00:02:04`.
 
 The router's LAN address is held the same way every other stable address here is:
 a Deco **address reservation** bound to a pinned MAC (`router_mac_address`, same
@@ -42,22 +41,22 @@ its own DHCP range, so "pick something below the pool" is not an option on this
 router. The reservation is what keeps the address; without it a phone gets it
 eventually and the whole lab subnet goes dark.
 
-Current Deco reservations, which are the only addresses on this LAN that are
-actually guaranteed:
+The complete set of Deco reservations this homelab needs — everything else is on
+the lab subnet, where the Deco hands out nothing and so has nothing to reserve:
 
-| Host | Address | Reserved |
+| Host | Address | Why it stays on the LAN |
 |---|---|---|
-| `homelab1` (Proxmox node) | `192.168.68.75` | yes |
-| `homelab2` (Proxmox node) | `192.168.68.65` | yes |
-| `homeassistant` (VM 200) | `192.168.68.60` | yes |
-| `router` (VM 204) | `192.168.68.100` | yes — MAC `BC:24:11:00:02:04` |
-| `nginx-cloudflared`, `docker`, `nginx-internal` | `.77`, `.78`, `.85` | **no** — plain dynamic leases |
-| `backup` (VM 300, on homelab1) | DHCP | **no** |
+| `homelab1` (Proxmox node) | `192.168.68.75` | Hypervisor management |
+| `homelab2` (Proxmox node) | `192.168.68.65` | Hypervisor management |
+| `homeassistant` (VM 200) | `192.168.68.60` | mDNS/SSDP discovery of IoT devices on the LAN |
+| `router` (VM 204) | `192.168.68.100` | It *is* the way into the lab. MAC `BC:24:11:00:02:04` |
+| `nginx-internal` (VM 203) | `192.168.68.85` | Front door for wifi clients — iPhones and Macs without a route stall on lab addresses ([why](#reaching-the-lab-from-the-lan)) |
 
-Those three unreserved VMs are exactly the mDNS "lease moved" failure mode the
+`docker`, `nginx-cloudflared` and `backup` used to be unreserved dynamic leases, the
+mDNS "lease moved" failure mode the
 [`fix-homelab-mdns`](../.claude/skills/fix-homelab-mdns/SKILL.md) skill documents
-(the docker VM has already jumped once, `.89` → `.78`). Reserving them is unrelated
-to this change, but it is the cheap fix for a recurring outage.
+(the docker VM jumped `.89` → `.78` once). On the lab subnet they need no reservation:
+their addresses live in git as `variables.tf` defaults.
 
 ```
                  Deco 192.168.68.1 ── internet
@@ -87,8 +86,10 @@ lab leases. Lab addresses are static, set by cloud-init (Terraform).
   redirects, and `/etc/nftables.conf` (masquerade + firewall policy). Applied by
   the `tag_router` play in `ansible/site.yml`. Tunables live in
   `ansible/group_vars/tag_router.yml`.
-- **Per-VM addressing** — the existing `*_static_ip` / `*_gateway` variables. A VM
-  joins the lab subnet purely through `terraform.tfvars`; no new Terraform code.
+- **Per-VM addressing** — the existing `*_static_ip` / `*_gateway` variables, whose
+  `variables.tf` defaults are the allocation table, so the plan is in git rather
+  than in the gitignored `terraform.tfvars`. `lab_subnet` feeds the route that
+  LAN-side `nginx-internal` uses to reach its lab upstream.
 
 The router VM is deliberately excluded from the avahi play
 (`hosts: tag_ansible:!tag_router`): avahi publishes *every* address on an
@@ -271,17 +272,34 @@ before first boot. Moving a **running** VM has two traps:
 2. **You will lose the SSH session** the moment the address changes. Do it from
    the Proxmox noVNC console, not over SSH.
 
-```bash
-# 1. record the intent so a rebuild lands on the same address
-#    terraform.tfvars:  docker_static_ip = "10.10.10.20/24"
-#                       docker_gateway   = "10.10.10.1"
-cd terraform && terraform apply
+The VMs these steps were written for came up on DHCP, so their netplan has no
+address to edit — replace the file instead. From the Proxmox console on the VM,
+with `ADDR` taken from the [allocation table](../README.md#ip-allocation):
 
-# 2. from the Proxmox console on that VM
-sudo sed -i 's#192\.168\.68\.[0-9]*/2[24]#10.10.10.20/24#; s#via: 192\.168\.68\.1#via: 10.10.10.1#' \
-  /etc/netplan/50-cloud-init.yaml
+```bash
+ADDR=10.10.10.20/24   # docker; nginx-cloudflared .10, backup .30
+sudo cp /etc/netplan/50-cloud-init.yaml /root/50-cloud-init.yaml.lan
+sudo tee /etc/netplan/50-cloud-init.yaml >/dev/null <<EOF
+network:
+  version: 2
+  ethernets:
+    primary:
+      match: {name: "e*"}
+      dhcp4: false
+      addresses: [$ADDR]
+      routes:
+        - to: default
+          via: 10.10.10.1
+      nameservers:
+        addresses: [8.8.8.8]
+EOF
+sudo chmod 600 /etc/netplan/50-cloud-init.yaml
 sudo netplan apply
+ip -4 -o addr show scope global && ping -c2 10.10.10.1 && ping -c2 192.168.68.1
 ```
+
+That is the same file Terraform's snippet now generates, so a rebuild lands on the
+same address. Rollback is copying the saved file back and `sudo netplan apply`.
 
 ### The mDNS trap — read before moving `docker`
 
@@ -292,16 +310,20 @@ including the nginx VMs. nginx resolves upstream names once, at config-parse
 time, and refuses to start when that fails, so a half-moved chain takes the site
 down until a human intervenes (see `.claude/skills/fix-homelab-mdns`).
 
-Therefore: move the party-time chain (`docker`, `nginx-cloudflared`,
-`nginx-internal`) **together in one window**, or leave it on the LAN.
+Therefore: move `docker` and `nginx-cloudflared` **together in one window**, and
+restart nginx on both nginx VMs at the end of it. `nginx-internal` stays on the LAN
+(it is what wifi clients hit) and reaches the lab through a route of its own.
 
-The chain has a fourth consumer that does not move with it: the **backup VM on
-homelab1** reaches Postgres over SSH at `backup_docker_host: docker.local`
-(`ansible/roles/backup/defaults/main.yml`). Move `docker` without giving the backup
-VM a route (below), or without repointing that variable, and nightly Postgres
-backups start failing quietly — the kind of breakage nobody notices until a
-restore is needed. If a
-consumer of a `.local` name must stay on the LAN, give it a route of its own:
+The **backup VM on homelab1** also reaches docker, over SSH for `pg_dump`. Its
+`backup_docker_host` is now the fixed address `10.10.10.20`
+(`ansible/roles/backup/defaults/main.yml`) rather than `docker.local`; until the
+backup play is re-run with that value, a moved docker VM means nightly Postgres
+backups fail quietly — the kind of breakage nobody notices until a restore is
+needed. The cutover below re-runs it.
+
+A VM that stays on the LAN but talks to lab VMs gets a route to the lab via the
+router. Terraform's `nginx-internal` snippet carries it; on the running VM, add it
+by hand:
 
 ```yaml
 # /etc/netplan/50-cloud-init.yaml on the LAN-side VM
@@ -313,7 +335,37 @@ consumer of a `.local` name must stay on the LAN, give it a route of its own:
 ```
 
 Then `sudo netplan apply && sudo systemctl restart nginx` — the restart is what
-re-resolves the pinned upstream addresses.
+re-resolves the pinned upstream addresses. (A DHCP VM's file has no `default`
+route to keep; add only the `10.10.10.0/24` entry under a `routes:` key.)
+
+### Cutover: the party-time chain
+
+One window, in this order. Each step is safe to stop after; rollback is the reverse.
+
+1. **Before the window.** In the Deco app, reserve `192.168.68.85` for
+   `nginx-internal` (pick it from the client list — its MAC is not pinned). Check
+   the Mac running Ansible has its lab route (`netstat -rn | grep 10.10.10`).
+2. **`terraform apply`** with this branch. Expect only the `*-network-config.yaml`
+   snippets to change; no VM should be replaced. If the plan wants to recreate a
+   VM, stop. Running VMs are unaffected — cloud-init applied their network config
+   at first boot.
+3. **`nginx-internal`: add the lab route** (above) and check
+   `ip route get 10.10.10.20` says `via 192.168.68.100`. Harmless before the move.
+4. **`docker` → `10.10.10.20`**, then **`nginx-cloudflared` → `10.10.10.10`**, each
+   from its Proxmox console per [Moving an existing VM](#moving-an-existing-vm-onto-the-lab-subnet).
+5. **Restart nginx** on `nginx-cloudflared` and `nginx-internal` so both re-resolve
+   `docker.local` (now `10.10.10.20`). Check the public site through Cloudflare and
+   the admin UI from a phone on wifi.
+6. **`backup` → `10.10.10.30`** from homelab1's console, then from the Mac:
+   `ansible-playbook site.yml --limit tag_backup` (renders the new
+   `backup_docker_host`), and on the backup VM
+   `sudo systemctl start backup-postgres.service && journalctl -u backup-postgres -n 30`.
+7. **Clean up.** The old `.77`/`.78` leases expire on their own; there were no
+   reservations for them to delete. Remove any `/etc/hosts` pins of the old
+   addresses (Mode A in `fix-homelab-mdns`).
+
+The Ansible inventory needs no change: `ansible_host` comes from the guest agent,
+so it follows each VM to its new address.
 
 Home Assistant stays on the LAN regardless: it depends on mDNS/SSDP discovery of
 IoT devices that live there.
@@ -357,9 +409,9 @@ for anything that moves onto the lab subnet:
 
 **The Deco does not serve `10.10.10.0/24`.** It has no DHCP scope there and never
 offers a lease on it, so a lab VM's address cannot be taken from it and needs no
-address reservation. `192.168.68.100` for the router is the *last* reservation
-this homelab has to make by hand; every VM placed behind it is addressed in git
-(`*_static_ip` in `terraform.tfvars`) and nowhere else.
+address reservation. The five LAN reservations in the table above are the whole
+list; every VM placed behind the router is addressed in git (`*_static_ip`
+defaults in `variables.tf`) and nowhere else.
 
 Remaining steps, in dependency order:
 
@@ -372,9 +424,10 @@ Remaining steps, in dependency order:
    with a UI, so it can take this job later without re-planning.
 2. **Point lab VMs at it.** Each VM already has a `*_nameserver` Terraform
    variable — set it to `10.10.10.1`. No new plumbing.
-3. **Migrate the services** (`docker`, `nginx-internal`, `nginx-cloudflared`)
-   onto lab addresses in one window, per the migration section above, replacing
-   `docker.local` upstreams with the new zone names as they move. Once nothing
+3. **Migrate the services** (`docker`, `nginx-cloudflared`, `backup`) onto lab
+   addresses in one window, per [the cutover](#cutover-the-party-time-chain), and
+   replace `docker.local` upstreams with the new zone names. `nginx-internal` stays
+   on the LAN as the wifi front door. Once nothing
    resolves a `.local` name, avahi can come out of the `tag_ansible` play
    entirely and the `fix-homelab-mdns` failure class disappears with it.
 4. **Resolve lab names from the LAN.** The Deco cannot do split-horizon DNS, but

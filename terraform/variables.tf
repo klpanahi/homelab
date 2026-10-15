@@ -105,15 +105,15 @@ variable "nginx_ssh_public_key" {
 }
 
 variable "nginx_static_ip" {
-  description = "Static IP with CIDR for the nginx VM, e.g. 192.168.68.101/24. Leave empty for DHCP."
+  description = "Static IP with CIDR for the nginx-cloudflared VM. Defaults to its lab-subnet address from the allocation table in docs/lab-subnet.md. Set to \"\" for DHCP."
   type        = string
-  default     = ""
+  default     = "10.10.10.10/24"
 }
 
 variable "nginx_gateway" {
-  description = "Gateway for nginx VM static IP (required when nginx_static_ip is set)"
+  description = "Gateway for nginx VM static IP (required when nginx_static_ip is set). The router VM's lab address for a lab VM."
   type        = string
-  default     = ""
+  default     = "10.10.10.1"
 }
 
 variable "nginx_nameserver" {
@@ -154,15 +154,15 @@ variable "docker_ssh_public_key" {
 }
 
 variable "docker_static_ip" {
-  description = "Static IP with CIDR for the docker VM, e.g. 192.168.68.102/24. Leave empty for DHCP."
+  description = "Static IP with CIDR for the docker VM. Defaults to its lab-subnet address from the allocation table in docs/lab-subnet.md. Set to \"\" for DHCP."
   type        = string
-  default     = ""
+  default     = "10.10.10.20/24"
 }
 
 variable "docker_gateway" {
-  description = "Gateway for docker VM static IP (required when docker_static_ip is set)"
+  description = "Gateway for docker VM static IP (required when docker_static_ip is set). The router VM's lab address for a lab VM."
   type        = string
-  default     = ""
+  default     = "10.10.10.1"
 }
 
 variable "docker_nameserver" {
@@ -198,7 +198,7 @@ variable "nginx_internal_disk_gb" {
 }
 
 variable "nginx_internal_static_ip" {
-  description = "Static IP with CIDR for the nginx-internal VM, e.g. 192.168.68.103/24. Leave empty for DHCP."
+  description = "Static IP with CIDR for the nginx-internal VM. Empty (the default) keeps DHCP: this VM deliberately stays on the LAN as the front door for wifi clients, and its address is held by a Deco reservation (see docs/lab-subnet.md)."
   type        = string
   default     = ""
 }
@@ -267,15 +267,15 @@ variable "backup_disk_gb" {
 }
 
 variable "backup_static_ip" {
-  description = "Static IP with CIDR for the backup VM, e.g. 192.168.68.104/24. Leave empty for DHCP."
+  description = "Static IP with CIDR for the backup VM. Defaults to its lab-subnet address from the allocation table in docs/lab-subnet.md. Set to \"\" for DHCP."
   type        = string
-  default     = ""
+  default     = "10.10.10.30/24"
 }
 
 variable "backup_gateway" {
-  description = "Gateway for backup VM static IP (required when backup_static_ip is set)"
+  description = "Gateway for backup VM static IP (required when backup_static_ip is set). The router VM's lab address for a lab VM."
   type        = string
-  default     = ""
+  default     = "10.10.10.1"
 }
 
 variable "backup_nameserver" {
@@ -328,6 +328,12 @@ variable "router_lan_gateway" {
   description = "Home router (Deco) address — the router VM's only default gateway"
   type        = string
   default     = "192.168.68.1"
+}
+
+variable "lab_subnet" {
+  description = "The lab subnet. Must match the router_lab_ip prefix and router_lab_subnet in ansible/group_vars/tag_router.yml. LAN-side VMs that talk to lab VMs (nginx-internal) get a route to it via the router's LAN address."
+  type        = string
+  default     = "10.10.10.0/24"
 }
 
 variable "router_lab_ip" {

@@ -92,15 +92,17 @@ silently targets homelab2 instead.
 | `nginx_vm_id` | `201` | Proxmox VM ID |
 | `nginx_cpu_cores` / `nginx_memory_mb` / `nginx_disk_gb` | `1` / `1024` / `20` | sizing |
 | `nginx_ssh_public_key` | — | injected into ubuntu user |
-| `nginx_static_ip` / `_gateway` / `_nameserver` | `""` / `""` / `8.8.8.8` | empty = DHCP |
+| `nginx_static_ip` / `_gateway` / `_nameserver` | `10.10.10.10/24` / `10.10.10.1` / `8.8.8.8` | lab address; `""` = DHCP |
 | `proxmox_homelab1_endpoint` | `https://192.168.68.75:8006` | API URL for standalone homelab1 host |
 | `proxmox_homelab1_api_token` | — | sensitive; homelab1's OWN token — homelab1 and homelab2 are not clustered and don't share a user/token database |
 | `proxmox_homelab1_node` | — | node name as reported by homelab1's own `/api2/json/nodes`; not knowable in advance, must be queried |
 | `proxmox_homelab1_ssh_host` | `192.168.68.75` | SSH target for homelab1 root |
 | `backup_vm_id` | `300` | Proxmox VM ID |
 | `backup_cpu_cores` / `backup_memory_mb` / `backup_disk_gb` | `2` / `2048` / `100` | sizing; disk is the backup store itself |
-| `backup_static_ip` / `_gateway` / `_nameserver` | `""` / `""` / `8.8.8.8` | empty = DHCP |
-| `docker_*` / `nginx_internal_*` | see file | same sizing + static-IP pattern per VM |
+| `backup_static_ip` / `_gateway` / `_nameserver` | `10.10.10.30/24` / `10.10.10.1` / `8.8.8.8` | lab address; `""` = DHCP |
+| `docker_static_ip` / `_gateway` | `10.10.10.20/24` / `10.10.10.1` | lab address |
+| `docker_*` / `nginx_internal_*` | see file | same sizing + static-IP pattern per VM; `nginx_internal_static_ip` stays `""` (LAN, DHCP + Deco reservation) |
+| `lab_subnet` | `10.10.10.0/24` | nginx-internal routes it via the router's LAN address |
 | `router_vm_id` | `204` | lab router VM |
 | `router_lan_ip` | `192.168.68.100/22` | LAN-side address; below the Deco DHCP pool (starts `.50`) |
 | `router_mac_address` | `BC:24:11:00:02:04` | pinned NIC MAC for the Deco address reservation |
@@ -109,7 +111,8 @@ silently targets homelab2 instead.
 | `router_cpu_cores` / `router_memory_mb` / `router_disk_gb` | `1` / `1024` / `10` | sizing |
 
 A VM joins the lab subnet by pointing its existing `*_static_ip` / `*_gateway`
-at the lab range — no new Terraform resources.
+at the lab range — no new Terraform resources. The defaults are the allocation
+table in `README.md`.
 
 ## Provider Config (main.tf)
 

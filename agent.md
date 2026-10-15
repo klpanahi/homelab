@@ -62,7 +62,7 @@ The QEMU guest agent must be installed (`apt install qemu-guest-agent && systemc
 - UFW default: deny inbound, allow outgoing, SSH allowed from ZeroTier subnet only
 - Public services: Cloudflare Tunnel (outbound-only, zero open inbound ports)
 - Lab VMs: addresses from `10.10.10.0/24`, routed and NAT'd by the router VM (see below). The Deco LAN is a **/22** (`192.168.68.1`–`192.168.71.254`), not a /24
-- Deco address reservations must be **inside** its DHCP pool (`192.168.68.50`–`192.168.71.250`) — there is no "static space below the pool" on this router. Stable addresses are in-pool and held by a MAC reservation: `homelab1` `.75`, `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`. `docker`/`nginx-cloudflared`/`nginx-internal` are **unreserved** dynamic leases, which is the root of the recurring mDNS breakage (see the `fix-homelab-mdns` skill)
+- Deco address reservations must be **inside** its DHCP pool (`192.168.68.50`–`192.168.71.250`) — there is no "static space below the pool" on this router. Stable addresses are in-pool and held by a MAC reservation: `homelab1` `.75`, `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`, `nginx-internal` `.85` (kept on the LAN as the wifi front door). `docker`/`nginx-cloudflared`/`backup` live on the lab subnet at fixed addresses and need no reservation — see the IP allocation table in `README.md`
 
 ---
 
@@ -88,8 +88,8 @@ Consequences worth remembering, with the full runbook in
   the Deco's and hand lab leases to household devices. Lab addresses are static.
 - **mDNS crosses the subnet boundary.** avahi advertises whichever address a host
   actually holds, so moving a VM changes what its `.local` name resolves to for
-  *every* LAN host. nginx pins upstream addresses at parse time, so move the
-  party-time chain together or not at all.
+  *every* LAN host. nginx pins upstream addresses at parse time, so move
+  `docker` and `nginx-cloudflared` together and restart both nginx VMs after.
 - **The Deco static route only works for some devices.** The Deco routes
   `10.10.10.0/24 → 192.168.68.100` (interface LAN), but its hardware path stalls
   hairpinned connections after ~10 packets. Linux and Windows escape by following
