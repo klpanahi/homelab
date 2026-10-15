@@ -57,8 +57,25 @@ table inet filter {
 }
 
 table inet nat {
+{% if router_front_door_target %}
+  # Front door: web traffic to the router's LAN address goes to nginx-internal in
+  # the lab. Its replies return via its default gateway (us), so LAN clients only
+  # ever talk to {{ router_lan_address }} and never hairpin through the Deco.
+  chain prerouting {
+    type nat hook prerouting priority dstnat; policy accept;
+
+    ip daddr {{ router_lan_address }} tcp dport { {{ router_front_door_ports | join(', ') }} } dnat ip to {{ router_front_door_target }}
+  }
+
+{% endif %}
   chain postrouting {
     type nat hook postrouting priority srcnat; policy accept;
+
+{% if router_front_door_target %}
+    # A lab host using the front door would otherwise get the reply straight from
+    # nginx-internal (same subnet), from an address it never connected to.
+    ip saddr $LAB_NET ip daddr {{ router_front_door_target }} ct status dnat masquerade
+{% endif %}
 
 {% if not router_masquerade_to_lan %}
     # The Deco has a static route for $LAB_NET, so LAN-bound traffic can keep its

@@ -32,7 +32,7 @@ router_dns_hosts:          # name -> address
   - { name: homelab2, ip: 192.168.68.65 }
 
 router_dns_aliases:        # name -> another name in router_dns_hosts
-  - { name: partytime, target: nginx-internal }
+  - { name: partytime, target: router }
 ```
 
 The play refuses to run if a name appears twice, or if an alias points at
@@ -40,22 +40,28 @@ something that isn't in `router_dns_hosts`. dnsmasq can only follow a CNAME to a
 name it serves itself. The rendered config is also syntax-checked with
 `dnsmasq --test` before it's installed.
 
-**Point browser-facing services at nginx-internal, not at their own lab
-address.** iPhones and Macs on the Wi-Fi stall on any real transfer to
-`10.10.10.x` because traffic hairpins through the Deco (see
-[lab-subnet.md](lab-subnet.md#reaching-the-lab-from-the-lan)). A name that
-resolves to a LAN address always works, so the pattern is:
+**Point browser-facing services at `router`, not at their own lab address.**
+iPhones and Macs on the Wi-Fi stall on any real transfer to `10.10.10.x`, because
+the traffic hairpins through the Deco (see
+[lab-subnet.md](lab-subnet.md#reaching-the-lab-from-the-lan)). A LAN address always
+works. So the router is the front door: it forwards ports 80 and 443 on
+`192.168.68.100` to nginx-internal's lab address (`router_front_door_target` in
+`group_vars/tag_router.yml`), and nginx-internal routes by hostname. Replies come
+back through the router, so a phone only ever talks to `192.168.68.100`. To add a
+website:
 
-1. Add an alias, `<service>` → `nginx-internal`.
+1. Add an alias, `<service>` → `router`.
 2. Give nginx-internal a vhost with `server_name <service>.home.arpa` that proxies
-   to the backend. The backend can live on the lab subnet, because nginx-internal
-   reaches it through the router.
+   to the backend.
 
-`nginx-internal` at `192.168.68.89` is still a plain dynamic lease. Reserve it in
-the Deco before you lean on aliases, or they all break the day the lease moves.
+This way the router's `.100` is the only Deco reservation the lab needs. Every
+lab VM is addressed in Terraform, so its record never goes stale. Home Assistant
+and the Proxmox nodes keep their existing reservations on the LAN.
 
-Lab VMs have no such problem. They can be given `10.10.10.x` records and reach
-each other directly.
+**Order matters.** `records.yml` and the front door hold the post-cutover lab
+addresses. Re-run the router play as the last step of the window that moves the
+VMs onto the lab subnet, not before. Until then the router keeps serving the
+addresses it was last applied with.
 
 ## Pointing the Wi-Fi at it
 

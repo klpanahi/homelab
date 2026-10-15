@@ -9,6 +9,10 @@ router_lab_subnet: 10.10.10.0/24
 # 192.168.71.254 are all one subnet.
 router_lan_subnet: 192.168.68.0/22
 
+# The router's own LAN address, without prefix (terraform router_lan_ip). The one
+# Deco reservation everything else hangs off.
+router_lan_address: 192.168.68.100
+
 # Masquerade lab traffic bound for LAN hosts as well as for the internet.
 # Setting this false preserves real lab source IPs on LAN-bound traffic, but then
 # LAN hosts must answer 10.10.10.x addresses through their default gateway. On a
@@ -33,7 +37,7 @@ router_dns_enabled: true
 # (router_lan_ip / router_lab_ip in terraform/variables.tf), without prefixes.
 # Deliberately not 127.0.0.1: systemd-resolved owns the router's own lookups.
 router_dns_listen_addresses:
-  - 192.168.68.100
+  - "{{ router_lan_address }}"
   - 10.10.10.1
 
 # Where everything outside router_dns_domain goes. Public resolvers rather than
@@ -58,3 +62,11 @@ router_dns_log_queries: false
 router_dns_domain: home.arpa
 router_dns_hosts: []
 router_dns_aliases: []
+
+# ── Front door ───────────────────────────────────────────────────────────────
+# Forward these ports on router_lan_address to a lab host (nginx-internal), so
+# Wi-Fi devices reach lab websites at a LAN address. iPhones and Macs can't
+# reliably reach 10.10.10.x through the Deco; a LAN address always works, and the
+# replies come straight back from the router. Empty disables forwarding.
+router_front_door_target: ""
+router_front_door_ports: [80, 443]
