@@ -1,0 +1,45 @@
+# Internal DNS records, served by dnsmasq on the router VM (ansible/roles/router).
+# This is the one place to add a name. Apply with:
+#
+#   ansible-playbook site.yml --limit tag_router
+#
+# Every name below gets the zone appended: "homelab2" answers as
+# homelab2.home.arpa. Design and Deco setup: docs/internal-dns.md
+#
+# Two kinds of record:
+#   router_dns_hosts    name -> IPv4 address (a PTR is created automatically)
+#   router_dns_aliases  name -> another name in router_dns_hosts (a CNAME)
+#
+# Lab VMs are addressed in git (terraform *_static_ip), so their records never
+# go stale and none of them needs a Deco reservation. Websites people open from
+# the Wi-Fi are aliases to "router": the router forwards ports 80/443 on its LAN
+# address to nginx-internal in the lab (router_front_door_target), because
+# iPhones and Macs stall reaching 10.10.10.x through the Deco but reach the
+# router's LAN address fine (docs/lab-subnet.md).
+#
+# These are the post-cutover addresses (allocation table in README.md). Re-run
+# the router play as the last step of the window that moves the VMs.
+
+router_dns_domain: home.arpa
+
+router_dns_hosts:
+  # ── LAN, held by Deco reservations ──────────────────────────────────────────
+  # Proxmox nodes (web UI on :8006)
+  - { name: homelab1, ip: 192.168.68.75 }
+  - { name: homelab2, ip: 192.168.68.65 }
+  # Home Assistant (:8123). Stays on the LAN for mDNS/SSDP discovery of IoT devices.
+  - { name: homeassistant, ip: 192.168.68.60 }
+  # The router: resolver, lab gateway, and front door for lab websites.
+  - { name: router, ip: 192.168.68.100 }
+
+  # ── Lab subnet, addressed by Terraform — no reservations ───────────────────
+  - { name: nginx-cloudflared, ip: 10.10.10.10 }
+  - { name: docker, ip: 10.10.10.20 }
+  - { name: backup, ip: 10.10.10.30 }
+  - { name: nginx-internal, ip: 10.10.10.40 }
+
+# Websites for the Wi-Fi. Each points at the router; nginx-internal needs a vhost
+# with a matching server_name (party-time's lives in the party-time repo).
+router_dns_aliases:
+  # party-time admin UI
+  - { name: partytime, target: router }

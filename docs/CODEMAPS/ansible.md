@@ -21,6 +21,9 @@ ansible/
     tag_nginx.yml          geerlingguy.nginx baseline config
     tag_router.yml         lab router: lab/LAN subnets, NAT-to-LAN toggle
   roles/router/            REPO-OWNED role — IP forwarding + nftables ruleset
+                            + dnsmasq internal DNS (home.arpa)
+  dns/records.yml          internal DNS records (hosts + aliases) served by the
+                            router's dnsmasq; loaded by the tag_router play
   site.yml                 top-level playbook
   .vault_pass              GITIGNORED — vault password file
   collections/             GITIGNORED — galaxy installs
@@ -92,9 +95,13 @@ site.yml
                              address to LAN clients that can't route to it)
   hosts: tag_router        → role router (repo-owned): nftables pkg, ufw removed,
                              ip_forward + send_redirects sysctls,
-                             /etc/nftables.conf (validated with `nft --check`)
+                             /etc/nftables.conf (validated with `nft --check`),
+                             dnsmasq + /etc/dnsmasq.d/lab.conf (validated with
+                             `dnsmasq --test`; port 53 opened for LAN + lab)
       ← group_vars/tag_router.yml: router_lab_subnet, router_lan_subnet,
         router_masquerade_to_lan
+      ← dns/records.yml (vars_files): router_dns_domain, router_dns_hosts,
+        router_dns_aliases — see docs/internal-dns.md
   hosts: tag_nginx         → role geerlingguy.nginx (install/baseline only)
   hosts: tag_cloudflared   → role cloudflared
   hosts: tag_docker        → role geerlingguy.docker, then installs

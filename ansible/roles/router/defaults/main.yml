@@ -9,6 +9,10 @@ router_lab_subnet: 10.10.10.0/24
 # 192.168.71.254 are all one subnet.
 router_lan_subnet: 192.168.68.0/22
 
+# The router's own LAN address, without prefix (terraform router_lan_ip). The one
+# Deco reservation everything else hangs off.
+router_lan_address: 192.168.68.100
+
 # Masquerade lab traffic bound for LAN hosts as well as for the internet.
 # Setting this false preserves real lab source IPs on LAN-bound traffic, but then
 # LAN hosts must answer 10.10.10.x addresses through their default gateway. On a
@@ -21,3 +25,48 @@ router_masquerade_to_lan: true
 router_ssh_allowed_subnets:
   - "{{ router_lan_subnet }}"
   - "{{ router_lab_subnet }}"
+
+# ── Internal DNS (dnsmasq) ───────────────────────────────────────────────────
+# The records themselves (router_dns_domain, router_dns_hosts,
+# router_dns_aliases) live in ansible/dns/records.yml, loaded by the router play
+# in site.yml. See docs/internal-dns.md.
+
+router_dns_enabled: true
+
+# Addresses dnsmasq answers on — the router's two addresses from terraform
+# (router_lan_ip / router_lab_ip in terraform/variables.tf), without prefixes.
+# Deliberately not 127.0.0.1: systemd-resolved owns the router's own lookups.
+router_dns_listen_addresses:
+  - "{{ router_lan_address }}"
+  - 10.10.10.1
+
+# Where everything outside router_dns_domain goes. Public resolvers rather than
+# the Deco (192.168.68.1): if the Deco's own upstream DNS were ever pointed at
+# the router, forwarding back to the Deco would loop.
+router_dns_upstreams:
+  - 1.1.1.1
+  - 9.9.9.9
+
+# Subnets allowed to query the resolver.
+router_dns_allowed_subnets:
+  - "{{ router_lan_subnet }}"
+  - "{{ router_lab_subnet }}"
+
+# TTL handed out for local records, in seconds. Short, so a changed address
+# reaches clients quickly.
+router_dns_local_ttl: 60
+
+# Log every query to the journal (journalctl -u dnsmasq). Useful while debugging.
+router_dns_log_queries: false
+
+router_dns_domain: home.arpa
+router_dns_hosts: []
+router_dns_aliases: []
+
+# ── Front door ───────────────────────────────────────────────────────────────
+# Forward these ports on router_lan_address to a lab host (nginx-internal), so
+# Wi-Fi devices reach lab websites at a LAN address. iPhones and Macs can't
+# reliably reach 10.10.10.x through the Deco; a LAN address always works, and the
+# replies come straight back from the router. Empty disables forwarding.
+router_front_door_target: ""
+router_front_door_ports: [80, 443]
