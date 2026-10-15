@@ -51,7 +51,7 @@ resolves to a LAN address always works, so the pattern is:
    to the backend. The backend can live on the lab subnet, because nginx-internal
    reaches it through the router.
 
-`nginx-internal` at `192.168.68.85` is still a plain dynamic lease. Reserve it in
+`nginx-internal` at `192.168.68.89` is still a plain dynamic lease. Reserve it in
 the Deco before you lean on aliases, or they all break the day the lease moves.
 
 Lab VMs have no such problem. They can be given `10.10.10.x` records and reach

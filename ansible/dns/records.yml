@@ -25,14 +25,14 @@ router_dns_hosts:
   # The router/resolver itself. LAN address only: 10.10.10.1 is unreachable
   # from iPhones and Macs without a route.
   - { name: router, ip: 192.168.68.100 }
-  # Front door for internal web services. NOTE: .85 is still a plain dynamic
+  # Front door for internal web services. NOTE: .89 is still a plain dynamic
   # lease — give it a Deco reservation (or a static IP) before relying on it,
   # or every alias below breaks the day the lease moves.
-  - { name: nginx-internal, ip: 192.168.68.85 }
+  - { name: nginx-internal, ip: 192.168.68.89 }
   # Docker host (party-time backend, Postgres). Still a dynamic LAN lease today
-  # (.78). Change this to 10.10.10.20 in the same window that moves the VM onto
+  # (.88). Change this to 10.10.10.20 in the same window that moves the VM onto
   # the lab subnet (PR #6's cutover), then re-run the router play.
-  - { name: docker, ip: 192.168.68.78 }
+  - { name: docker, ip: 192.168.68.88 }
 
 # Service names for the Wi-Fi, pointed at nginx-internal. nginx-internal needs a
 # vhost that answers for each name (server_name <name>.home.arpa, or a default
