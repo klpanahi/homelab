@@ -27,6 +27,19 @@ Designed for headless, always-on server use with a full REST API (usable with Te
 
 ---
 
+## Hardware
+
+| Host | RAM | Disk | Runs |
+|---|---|---|---|
+| `homelab2` (`192.168.68.65`) | 8 GB | 500 GB | homeassistant, nginx, docker, nginx-internal, router |
+| `homelab1` (`192.168.68.75`) | 8 GB | 500 GB | backup |
+
+- **RAM is the binding constraint, not disk.** homelab2's VMs already allocate ~9 GB (HAOS 4 GB, docker 2 GB, nginx / nginx-internal / router 1 GB each — see the `*_memory_mb` defaults in `terraform/variables.tf`), so it is overcommitted and has no room for new workloads. homelab1 has ~6 GB free after the 2 GB backup VM, so new memory-hungry services go there.
+- One NIC per host and an unmanaged switch — no VLANs (see "Why the Lab Subnet is Routed" below).
+- The TP-Link Deco is the LAN router and DHCP server, and also runs the **WireGuard VPN server** used for remote access to LAN-only services. That is separate from ZeroTier, which carries SSH/Ansible/Terraform admin traffic.
+
+---
+
 ## VM Strategy
 
 Workloads run as **Docker containers inside Linux VMs** rather than one VM per service. This keeps VM count low, makes services composable via `docker-compose.yml`, and keeps everything version-pinned and git-trackable.
