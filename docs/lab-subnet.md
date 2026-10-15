@@ -420,12 +420,12 @@ Remaining steps, in dependency order:
    upstream. Serves the LAN as well as the lab, so pointing the Deco's DHCP DNS
    at `192.168.68.100` gives every Wi-Fi device the internal names. Setup, the
    Deco steps and rollback: [internal-dns.md](internal-dns.md).
-2. **Point lab VMs at it.** Each VM already has a `*_nameserver` Terraform
-   variable — set it to `10.10.10.1`. No new plumbing.
-3. **Migrate the services** (`docker`, `nginx-cloudflared`, `nginx-internal`,
-   `backup`) onto lab addresses in one window, per
-   [the cutover](#cutover-the-party-time-chain), and replace `docker.local`
-   upstreams with the new zone names. Once nothing
+2. **Point lab VMs at it — done.** Every lab VM's `*_nameserver` defaults to
+   `10.10.10.1`; running VMs were switched in-guest
+   ([internal-dns.md](internal-dns.md#lab-vms)).
+3. **Migrate the services — done.** `docker`, `nginx-cloudflared`,
+   `nginx-internal` and `backup` are on lab addresses, and the party-time
+   upstreams and `backup_docker_host` use `docker.home.arpa`. Once nothing else
    resolves a `.local` name, avahi can come out of the `tag_ansible` play
    entirely and the `fix-homelab-mdns` failure class disappears with it.
 4. **Resolve lab names from the LAN.** Covered by step 1 once the Deco hands out
@@ -449,9 +449,10 @@ devices that live there, and it is already reserved at `.60`.
 - Single point of failure: the router VM gates all lab internet access. It is
   `on_boot = true`, but a host reboot means lab downtime until it is back.
 - No isolation (see the warning at the top).
-- Lab VMs keep public DNS (`8.8.8.8`) until their `*_nameserver` is set to
-  `10.10.10.1` ([internal-dns.md](internal-dns.md#lab-vms)); `.local` names
-  still resolve over mDNS either way.
+- Lab VMs resolve through the router (`10.10.10.1`,
+  [internal-dns.md](internal-dns.md#lab-vms)), so a router outage also takes out
+  their DNS, on top of their internet access. `.local` names still resolve over
+  mDNS while avahi runs.
 - Once the Deco hands out `192.168.68.100` as DNS, the router VM is the house's
   resolver too — see [internal-dns.md](internal-dns.md#failure-and-rollback).
 

@@ -103,10 +103,23 @@ expected, but a "server not found" error is not.
 
 ### Lab VMs
 
-Set a VM's existing `*_nameserver` Terraform variable to `10.10.10.1` when it
-moves onto the lab subnet. Running VMs need the change in-guest as well (the
-netplan `nameservers:` block, then `sudo netplan apply`), because cloud-init
-writes network config only once.
+Every lab VM's `*_nameserver` Terraform variable defaults to `10.10.10.1`, so a
+VM built on the lab subnet resolves `home.arpa` from its first boot. The router
+itself keeps `8.8.8.8` (`router_nameserver`): it is the resolver, and that is its
+upstream.
+
+A running VM needs the change in-guest as well, because cloud-init writes network
+config only once and the VMs ignore snippet changes:
+
+```bash
+sudo sed -i 's/addresses: \[8.8.8.8\]/addresses: [10.10.10.1]/' /etc/netplan/50-cloud-init.yaml
+sudo netplan apply
+resolvectl status enp6s18 | grep 'DNS Server'   # 10.10.10.1
+getent hosts docker.home.arpa                   # 10.10.10.20
+```
+
+The router is already every lab VM's only way out, so routing DNS through it adds
+no new failure: if it is down, the lab has no internet either way.
 
 ## mDNS / avahi
 
@@ -115,13 +128,14 @@ are still answered by avahi over multicast, and `home.arpa` is ordinary unicast
 DNS. The two zones don't overlap, and clients query each one the right way on
 their own.
 
-The plan is to replace mDNS, not to run both forever. As services move to fixed
-addresses, give each one a record here and switch its consumers from `X.local` to
-`X.home.arpa`. For example, nginx-internal's upstream (in the party-time repo) and
-`backup_docker_host` in `ansible/roles/backup/defaults/main.yml`. Once nothing
-resolves a `.local` name, avahi can come out of the `tag_ansible` play in
-`site.yml`. That removes the failure class the `fix-homelab-mdns` skill exists
-for: a moved lease silently changing what a name means.
+The plan is to replace mDNS, not to run both forever. The party-time chain has
+switched: both nginx upstreams (in the party-time repo) point at
+`docker.home.arpa`, the admin UI is `http://partytime.home.arpa`, and
+`backup_docker_host` in `ansible/roles/backup/defaults/main.yml` is
+`docker.home.arpa`. Once nothing else resolves a `.local` name, avahi can come out
+of the `tag_ansible` play in `site.yml`. That removes the failure class the
+`fix-homelab-mdns` skill exists for: a moved lease silently changing what a name
+means.
 
 The router stays excluded from avahi, as before. It publishes its LAN address as
 `router.home.arpa` here instead.

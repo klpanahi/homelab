@@ -117,9 +117,9 @@ variable "nginx_gateway" {
 }
 
 variable "nginx_nameserver" {
-  description = "DNS nameserver for the nginx VM"
+  description = "DNS nameserver for the nginx VM (the lab router's dnsmasq, which serves home.arpa and forwards the rest)"
   type        = string
-  default     = "8.8.8.8"
+  default     = "10.10.10.1"
 }
 
 # ── docker VM ─────────────────────────────────────────────────────────────────
@@ -166,9 +166,9 @@ variable "docker_gateway" {
 }
 
 variable "docker_nameserver" {
-  description = "DNS nameserver for the docker VM"
+  description = "DNS nameserver for the docker VM (the lab router's dnsmasq, which serves home.arpa and forwards the rest)"
   type        = string
-  default     = "8.8.8.8"
+  default     = "10.10.10.1"
 }
 
 # ── nginx-internal VM ────────────────────────────────────────────────────────
@@ -210,9 +210,9 @@ variable "nginx_internal_gateway" {
 }
 
 variable "nginx_internal_nameserver" {
-  description = "DNS nameserver for the nginx-internal VM"
+  description = "DNS nameserver for the nginx-internal VM (the lab router's dnsmasq, which serves home.arpa and forwards the rest)"
   type        = string
-  default     = "8.8.8.8"
+  default     = "10.10.10.1"
 }
 
 # ── homelab1 node ────────────────────────────────────────────────────────────
@@ -279,9 +279,9 @@ variable "backup_gateway" {
 }
 
 variable "backup_nameserver" {
-  description = "DNS nameserver for the backup VM"
+  description = "DNS nameserver for the backup VM (the lab router's dnsmasq, which serves home.arpa and forwards the rest)"
   type        = string
-  default     = "8.8.8.8"
+  default     = "10.10.10.1"
 }
 
 # ── lab router / NAT gateway ──────────────────────────────────────────────────

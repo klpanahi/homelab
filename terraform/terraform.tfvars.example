@@ -17,7 +17,7 @@ nginx_ssh_public_key = "ssh-ed25519 AAAA... you@host"
 # nginx_disk_gb    = 20           # default
 # nginx_static_ip  = "10.10.10.10/24"   # default — lab subnet, no Deco reservation needed
 # nginx_gateway    = "10.10.10.1"
-# nginx_nameserver = "8.8.8.8"
+# nginx_nameserver = "10.10.10.1"   # default — the router resolves home.arpa
 
 # homelab1 — a SEPARATE, standalone Proxmox host (not clustered with homelab2)
 # that hosts the backup VM
@@ -36,7 +36,7 @@ proxmox_homelab1_node = "homelab1"
 # backup_disk_gb    = 100    # default
 # backup_static_ip  = "10.10.10.30/24"   # default — lab subnet
 # backup_gateway    = "10.10.10.1"
-# backup_nameserver = "8.8.8.8"
+# backup_nameserver = "10.10.10.1"   # default — the router resolves home.arpa
 
 # ── lab router / NAT gateway (VM 204) ─────────────────────────────────────────
 # Routes the lab subnet onto the LAN. Defaults below match variables.tf, so all
@@ -51,7 +51,7 @@ proxmox_homelab1_node = "homelab1"
 # router_mac_address  = "BC:24:11:00:02:04"   # reserve this MAC in the Deco app
 # router_lan_gateway  = "192.168.68.1"
 # router_lab_ip      = "10.10.10.1/24"      # gateway address lab VMs point at
-# router_nameserver  = "8.8.8.8"
+# router_nameserver  = "8.8.8.8"     # upstream for the router itself and its dnsmasq
 # router_vm_id       = 204
 # router_cpu_cores   = 1
 # router_memory_mb   = 1024
