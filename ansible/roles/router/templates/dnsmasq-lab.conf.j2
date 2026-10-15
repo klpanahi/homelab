@@ -1,0 +1,42 @@
+# MANAGED BY ANSIBLE (ansible/roles/router) — local edits are overwritten.
+# Records come from ansible/dns/records.yml. See docs/internal-dns.md.
+#
+# DNS only. No dhcp-range is set, so dnsmasq hands out no leases — a DHCP server
+# on this shared broadcast domain would fight the Deco's (docs/lab-subnet.md).
+
+# Answer only on the router's own addresses. bind-interfaces keeps dnsmasq off
+# the wildcard socket, which also leaves 127.0.0.53 to systemd-resolved.
+bind-interfaces
+{% for addr in router_dns_listen_addresses %}
+listen-address={{ addr }}
+{% endfor %}
+
+# Upstreams are listed here, not taken from /etc/resolv.conf (which points at
+# systemd-resolved), and /etc/hosts is not served.
+no-resolv
+no-hosts
+{% for server in router_dns_upstreams %}
+server={{ server }}
+{% endfor %}
+
+# Never forward single-label names or private-range reverse lookups upstream.
+domain-needed
+bogus-priv
+
+# Authoritative for the zone: unknown names get NXDOMAIN here instead of being
+# forwarded to the internet.
+local=/{{ router_dns_domain }}/
+
+cache-size=1000
+local-ttl={{ router_dns_local_ttl }}
+{% if router_dns_log_queries %}
+log-queries
+{% endif %}
+
+# ── records ──────────────────────────────────────────────────────────────────
+{% for host in router_dns_hosts %}
+host-record={{ host.name }}.{{ router_dns_domain }},{{ host.ip }}
+{% endfor %}
+{% for alias in router_dns_aliases %}
+cname={{ alias.name }}.{{ router_dns_domain }},{{ alias.target }}.{{ router_dns_domain }}
+{% endfor %}

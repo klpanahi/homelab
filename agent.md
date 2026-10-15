@@ -119,13 +119,13 @@ Consequences worth remembering, with the full runbook in
 ## Open Decisions
 
 - Which services run on which machine; split for redundancy vs. single host with cross-machine backup
-- DNS strategy for internal service discovery. Direction settled, not yet built:
-  dnsmasq on the lab router VM, authoritative for a private zone with records in
-  git, replacing mDNS for anything on the lab subnet — see
-  [`docs/lab-subnet.md`](docs/lab-subnet.md) ("Where this is heading"). Pi-hole is
-  dnsmasq with a UI and can take that role later. Open sub-questions: which zone
-  name, and whether the LAN side resolves it via per-host resolver config or by
-  pointing the Deco's DNS at the router. The same dnsmasq could serve LAN DHCP
+- DNS strategy for internal service discovery. Built: dnsmasq on the router VM
+  serves `home.arpa` from `ansible/dns/records.yml` to the LAN and the lab, and the
+  LAN gets it by pointing the Deco's DHCP DNS at `192.168.68.100` — see
+  [`docs/internal-dns.md`](docs/internal-dns.md). Browser-facing names point at
+  nginx-internal (LAN), not lab addresses, because Apple devices stall on
+  `10.10.10.x` through the Deco. Still open: retiring mDNS as services move. Pi-hole
+  is dnsmasq with a UI and can take that role later. The same dnsmasq could serve LAN DHCP
   with option 121, which would give every device (phones included) the lab route —
   but only if the Deco's DHCP server can be turned off
 - Monitoring and alerting (Grafana + Prometheus is a natural fit)

@@ -1,0 +1,37 @@
+# Internal DNS records, served by dnsmasq on the router VM (ansible/roles/router).
+# This is the one place to add a name. Apply with:
+#
+#   ansible-playbook site.yml --limit tag_router
+#
+# Every name below gets the zone appended: "homelab2" answers as
+# homelab2.home.arpa. Design and Deco setup: docs/internal-dns.md
+#
+# Two kinds of record:
+#   router_dns_hosts    name -> IPv4 address (a PTR is created automatically)
+#   router_dns_aliases  name -> another name in router_dns_hosts (a CNAME)
+#
+# Put services that people on the Wi-Fi open in a browser behind an alias to
+# nginx-internal, not on their own 10.10.10.x address: iPhones and Macs stall on
+# 10.10.10.x through the Deco (docs/lab-subnet.md), but reach the LAN fine.
+
+router_dns_domain: home.arpa
+
+router_dns_hosts:
+  # Proxmox nodes (web UI on :8006) — Deco reservations
+  - { name: homelab1, ip: 192.168.68.75 }
+  - { name: homelab2, ip: 192.168.68.65 }
+  # Home Assistant (:8123) — Deco reservation
+  - { name: homeassistant, ip: 192.168.68.60 }
+  # The router/resolver itself. LAN address only: 10.10.10.1 is unreachable
+  # from iPhones and Macs without a route.
+  - { name: router, ip: 192.168.68.100 }
+  # Front door for internal web services. NOTE: .85 is still a plain dynamic
+  # lease — give it a Deco reservation (or a static IP) before relying on it,
+  # or every alias below breaks the day the lease moves.
+  - { name: nginx-internal, ip: 192.168.68.85 }
+
+router_dns_aliases: []
+  # Service names for the Wi-Fi go here, pointed at nginx-internal, e.g.:
+  # - { name: party-admin, target: nginx-internal }
+  # nginx-internal then needs a vhost whose server_name matches
+  # (party-admin.home.arpa) — that vhost lives in the service's own repo.

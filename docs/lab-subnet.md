@@ -363,13 +363,11 @@ this homelab has to make by hand; every VM placed behind it is addressed in git
 
 Remaining steps, in dependency order:
 
-1. **Lab-side resolver.** dnsmasq on the router VM, authoritative for a private
-   zone (`home.arpa` is the reserved-for-this-purpose choice; `.local` is spoken
-   for by mDNS). Records come from a git-tracked hosts file rendered by the
-   `router` role — the same place the address plan already lives. Forward
-   everything else upstream. This is the concrete form of the "DNS strategy for
-   internal service discovery" open decision in `agent.md`; Pi-hole is dnsmasq
-   with a UI, so it can take this job later without re-planning.
+1. **Lab-side resolver — built.** dnsmasq on the router VM, authoritative for
+   `home.arpa`, records in `ansible/dns/records.yml`, everything else forwarded
+   upstream. Serves the LAN as well as the lab, so pointing the Deco's DHCP DNS
+   at `192.168.68.100` gives every Wi-Fi device the internal names. Setup, the
+   Deco steps and rollback: [internal-dns.md](internal-dns.md).
 2. **Point lab VMs at it.** Each VM already has a `*_nameserver` Terraform
    variable — set it to `10.10.10.1`. No new plumbing.
 3. **Migrate the services** (`docker`, `nginx-internal`, `nginx-cloudflared`)
@@ -377,9 +375,10 @@ Remaining steps, in dependency order:
    `docker.local` upstreams with the new zone names as they move. Once nothing
    resolves a `.local` name, avahi can come out of the `tag_ansible` play
    entirely and the `fix-homelab-mdns` failure class disappears with it.
-4. **Resolve lab names from the LAN.** The Deco cannot do split-horizon DNS, but
-   macOS can be told per-zone: a one-line `/etc/resolver/home.arpa` pointing at
-   `10.10.10.1` resolves lab names on the Mac without touching the router.
+4. **Resolve lab names from the LAN.** Covered by step 1 once the Deco hands out
+   `192.168.68.100` as DNS. Names people open from phones should still resolve to
+   a LAN address (nginx-internal as the front door), since `10.10.10.x` stalls for
+   Apple devices without a route.
 5. **Hand every device the lab route over DHCP (option 121).** The only fix for
    iPhones and iPads, and it retires the per-Mac routes: devices learn
    `10.10.10.0/24 via 192.168.68.100` at lease time and never hairpin through the
@@ -397,9 +396,11 @@ devices that live there, and it is already reserved at `.60`.
 - Single point of failure: the router VM gates all lab internet access. It is
   `on_boot = true`, but a host reboot means lab downtime until it is back.
 - No isolation (see the warning at the top).
-- DNS for lab VMs is still public (`8.8.8.8`) through NAT until the resolver in
-  "Where this is heading" lands; until then lab VMs resolve `.local` names the
-  same way everything else does, over mDNS.
+- Lab VMs keep public DNS (`8.8.8.8`) until their `*_nameserver` is set to
+  `10.10.10.1` ([internal-dns.md](internal-dns.md#lab-vms)); `.local` names
+  still resolve over mDNS either way.
+- Once the Deco hands out `192.168.68.100` as DNS, the router VM is the house's
+  resolver too — see [internal-dns.md](internal-dns.md#failure-and-rollback).
 
 If you tear the router down for good, delete its Deco address reservation too —
 a reservation pointing at a MAC that no longer exists just shrinks the usable pool.

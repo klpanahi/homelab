@@ -25,6 +25,11 @@ table inet filter {
 
     # SSH for Ansible (control machine on the LAN) and from lab hosts.
     ip saddr { {{ router_ssh_allowed_subnets | join(', ') }} } tcp dport 22 accept
+{% if router_dns_enabled %}
+
+    # Internal DNS (dnsmasq) for the LAN and the lab. See docs/internal-dns.md.
+    ip saddr { {{ router_dns_allowed_subnets | join(', ') }} } meta l4proto { tcp, udp } th dport 53 accept
+{% endif %}
 
     counter comment "input dropped"
   }

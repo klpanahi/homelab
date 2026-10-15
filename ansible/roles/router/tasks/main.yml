@@ -50,3 +50,76 @@
     name: nftables
     enabled: true
     state: started
+
+# ── Internal DNS ─────────────────────────────────────────────────────────────
+# dnsmasq serves the zone in ansible/dns/records.yml to the LAN and the lab, and
+# forwards everything else upstream. See docs/internal-dns.md.
+
+- name: Check DNS records
+  ansible.builtin.assert:
+    that:
+      # Names must be unique across hosts and aliases.
+      - _dns_names | length == _dns_names | unique | length
+      # dnsmasq only follows a CNAME to a name it serves itself.
+      - router_dns_aliases | map(attribute='target') | difference(router_dns_hosts | map(attribute='name')) | length == 0
+    fail_msg: >-
+      ansible/dns/records.yml: names must be unique, and every alias target must
+      be a name under router_dns_hosts.
+  vars:
+    _dns_names: "{{ (router_dns_hosts + router_dns_aliases) | map(attribute='name') | list }}"
+  when: router_dns_enabled
+
+# dnsmasq-base is the binary alone (no service), so the config can be written and
+# validated before the dnsmasq service package starts for the first time.
+- name: Install dnsmasq binary
+  ansible.builtin.apt:
+    name: dnsmasq-base
+    state: present
+  when: router_dns_enabled
+
+- name: Create dnsmasq config directory
+  ansible.builtin.file:
+    path: /etc/dnsmasq.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: router_dns_enabled
+
+- name: Install dnsmasq config and records
+  ansible.builtin.template:
+    src: dnsmasq-lab.conf.j2
+    dest: /etc/dnsmasq.d/lab.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/dnsmasq --test --conf-file=%s
+  notify: Restart dnsmasq
+  when: router_dns_enabled
+
+- name: Install dnsmasq service
+  ansible.builtin.apt:
+    name: dnsmasq
+    state: present
+  when: router_dns_enabled
+
+# Ubuntu's dnsmasq unit registers 127.0.0.1 with systemd-resolved as the host's
+# nameserver unless lo is excluded. dnsmasq doesn't listen there (see
+# router_dns_listen_addresses), so without this the router can't resolve names.
+- name: Keep dnsmasq from taking over the router's own resolver
+  ansible.builtin.lineinfile:
+    path: /etc/default/dnsmasq
+    regexp: '^#?\s*DNSMASQ_EXCEPT='
+    line: 'DNSMASQ_EXCEPT="lo"'
+  notify: Restart dnsmasq
+  when: router_dns_enabled
+
+- name: Apply dnsmasq changes now
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start dnsmasq
+  ansible.builtin.systemd:
+    name: dnsmasq
+    enabled: true
+    state: started
+  when: router_dns_enabled
