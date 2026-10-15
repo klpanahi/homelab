@@ -1,0 +1,62 @@
+---
+# Nightly restic backup of every instance's library to the restic server on the
+# docker VM (homelab2).
+# The library includes library/backups, where Immich writes its own nightly
+# database dump, so this covers photos and databases. docs/immich.md has the
+# restore steps.
+
+- name: Install restic
+  ansible.builtin.apt:
+    name: restic
+    state: present
+    update_cache: true
+
+- name: Create backup directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /etc/immich-backup, mode: "0700" }
+    - { path: "{{ immich_backup_root }}", mode: "0755" }
+
+# The .env files are sourced by the backup script, so every value is shell-quoted.
+- name: Write the restic server repository settings
+  ansible.builtin.copy:
+    dest: /etc/immich-backup/homelab2.env
+    mode: "0600"
+    content: |
+      RESTIC_REPOSITORY={{ ('rest:' ~ _rest_url ~ '/' ~ immich_backup_rest_user) | quote }}
+      RESTIC_PASSWORD={{ immich_backup_restic_password | quote }}
+  no_log: true
+  vars:
+    # http://host:port -> http://user:password@host:port
+    _rest_url: >-
+      {{ immich_backup_rest_url | regex_replace('^(https?://)', '\1'
+         ~ (immich_backup_rest_user | urlencode | replace('/', '%2F')) ~ ':'
+         ~ (immich_backup_rest_password | urlencode | replace('/', '%2F')) ~ '@') }}
+
+- name: Install the backup script
+  ansible.builtin.template:
+    src: immich-backup.sh.j2
+    dest: /usr/local/bin/immich-backup.sh
+    mode: "0755"
+
+- name: Install the backup service and timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - immich-backup.service
+    - immich-backup.timer
+  notify: Reload systemd
+
+- name: Flush handlers so systemd sees the new units
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable the backup timer
+  ansible.builtin.systemd:
+    name: immich-backup.timer
+    enabled: true
+    state: started
