@@ -29,9 +29,14 @@ router_dns_hosts:
   # lease — give it a Deco reservation (or a static IP) before relying on it,
   # or every alias below breaks the day the lease moves.
   - { name: nginx-internal, ip: 192.168.68.85 }
+  # Docker host (party-time backend, Postgres). Still a dynamic LAN lease today
+  # (.78). Change this to 10.10.10.20 in the same window that moves the VM onto
+  # the lab subnet (PR #6's cutover), then re-run the router play.
+  - { name: docker, ip: 192.168.68.78 }
 
-router_dns_aliases: []
-  # Service names for the Wi-Fi go here, pointed at nginx-internal, e.g.:
-  # - { name: party-admin, target: nginx-internal }
-  # nginx-internal then needs a vhost whose server_name matches
-  # (party-admin.home.arpa) — that vhost lives in the service's own repo.
+# Service names for the Wi-Fi, pointed at nginx-internal. nginx-internal needs a
+# vhost that answers for each name (server_name <name>.home.arpa, or a default
+# server); party-time's vhost lives in the party-time repo.
+router_dns_aliases:
+  # party-time admin UI, served by nginx-internal
+  - { name: partytime, target: nginx-internal }

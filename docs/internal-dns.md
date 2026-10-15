@@ -32,7 +32,7 @@ router_dns_hosts:          # name -> address
   - { name: homelab2, ip: 192.168.68.65 }
 
 router_dns_aliases:        # name -> another name in router_dns_hosts
-  - { name: party-admin, target: nginx-internal }
+  - { name: partytime, target: nginx-internal }
 ```
 
 The play refuses to run if a name appears twice, or if an alias points at
