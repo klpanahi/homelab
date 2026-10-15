@@ -36,6 +36,9 @@
 - name: Configure the lab router/NAT gateway
   hosts: tag_router
   become: true
+  # Internal DNS records the router's dnsmasq serves. See docs/internal-dns.md.
+  vars_files:
+    - dns/records.yml
   roles:
     - router
 

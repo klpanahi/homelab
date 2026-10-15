@@ -14,3 +14,8 @@ router_lan_subnet: 192.168.68.0/22
 # With false, LAN hosts answer lab-initiated connections via the Deco, whose
 # hairpin path stalls for macOS/iOS. See docs/lab-subnet.md.
 router_masquerade_to_lan: true
+
+# Lab websites are published on the router's LAN address and forwarded to
+# nginx-internal's lab address, so no lab VM needs a Deco reservation.
+# Names point here via aliases in ansible/dns/records.yml. See docs/internal-dns.md.
+router_front_door_target: 10.10.10.40
