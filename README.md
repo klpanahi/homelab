@@ -55,6 +55,10 @@ ssh root@192.168.68.65      # verify it works before applying
 
 ## Getting Started
 
+Changes are applied from their feature branch and merged once they work, so
+`main` always matches what is running. Check out the branch before running the
+commands below; see "Change Workflow" in [`agent.md`](agent.md).
+
 ### 1. Provision VMs (Terraform)
 
 ```bash
