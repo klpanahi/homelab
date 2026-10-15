@@ -2,8 +2,9 @@
 # Root directory on the backup VM under which all backup artifacts live.
 backup_root: /var/backups/homelab
 
-# Home Assistant Core API, reached over the LAN from the backup VM.
-backup_ha_url: "http://192.168.68.60:8123"
+# Home Assistant Core API, reached over the LAN from the backup VM. Resolved by
+# the router's dnsmasq (ansible/dns/records.yml).
+backup_ha_url: "http://homeassistant.home.arpa:8123"
 
 # Long-lived access token for the HA Core API.
 # Set vault_ha_token in group_vars/all/vault.yml.
@@ -21,11 +22,10 @@ backup_ha_agent_id: hassio.local
 backup_ha_create_timeout: 1800
 
 # The docker VM (homelab2) that hosts party-time-db, reached over SSH.
-# Its fixed lab-subnet address (docs/lab-subnet.md allocation table), not
-# docker.local: an mDNS name follows whatever address the VM holds, and a
-# failed lookup here makes the nightly dump fail quietly. Swap for the internal
-# DNS name once the lab resolver serves one.
-backup_docker_host: 10.10.10.20
+# Internal DNS, not docker.local: the record is pinned to the VM's fixed lab
+# address in ansible/dns/records.yml, while an mDNS name follows whatever the
+# VM advertises and a failed lookup makes the nightly dump fail quietly.
+backup_docker_host: docker.home.arpa
 backup_docker_user: ubuntu
 
 # SSH private key used to pull the Postgres dump. Public key must be

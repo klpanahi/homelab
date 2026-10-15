@@ -420,8 +420,9 @@ Remaining steps, in dependency order:
    upstream. Serves the LAN as well as the lab, so pointing the Deco's DHCP DNS
    at `192.168.68.100` gives every Wi-Fi device the internal names. Setup, the
    Deco steps and rollback: [internal-dns.md](internal-dns.md).
-2. **Point lab VMs at it.** Each VM already has a `*_nameserver` Terraform
-   variable — set it to `10.10.10.1`. No new plumbing.
+2. **Point lab VMs at it — done.** `site.yml` routes `home.arpa` lookups to
+   `10.10.10.1` with a systemd-resolved drop-in
+   ([internal-dns.md](internal-dns.md#lab-vms)), so `*_nameserver` stays public.
 3. **Migrate the services** (`docker`, `nginx-cloudflared`, `nginx-internal`,
    `backup`) onto lab addresses in one window, per
    [the cutover](#cutover-the-party-time-chain), and replace `docker.local`
@@ -449,8 +450,9 @@ devices that live there, and it is already reserved at `.60`.
 - Single point of failure: the router VM gates all lab internet access. It is
   `on_boot = true`, but a host reboot means lab downtime until it is back.
 - No isolation (see the warning at the top).
-- Lab VMs keep public DNS (`8.8.8.8`) until their `*_nameserver` is set to
-  `10.10.10.1` ([internal-dns.md](internal-dns.md#lab-vms)); `.local` names
+- Lab VMs send only `home.arpa` lookups to `10.10.10.1` and keep public DNS
+  (`8.8.8.8`) for everything else ([internal-dns.md](internal-dns.md#lab-vms)),
+  so a router outage breaks internal names but not public ones; `.local` names
   still resolve over mDNS either way.
 - Once the Deco hands out `192.168.68.100` as DNS, the router VM is the house's
   resolver too — see [internal-dns.md](internal-dns.md#failure-and-rollback).

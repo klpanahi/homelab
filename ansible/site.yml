@@ -30,6 +30,34 @@
         enabled: true
         state: started
 
+    # Send home.arpa lookups to the router's dnsmasq and leave everything else
+    # on the VM's existing resolver (8.8.8.8 from terraform *_nameserver). A
+    # resolved routing domain works on running VMs without touching the netplan
+    # that cloud-init wrote once, and an outage of the router's resolver can only
+    # break home.arpa names, never public ones. See docs/internal-dns.md#lab-vms.
+    - name: Create the systemd-resolved drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Route home.arpa lookups to the lab resolver
+      ansible.builtin.copy:
+        dest: /etc/systemd/resolved.conf.d/home-arpa.conf
+        content: |
+          # Managed by homelab ansible/site.yml.
+          [Resolve]
+          DNS={{ lab_dns_server }}
+          Domains=~{{ lab_dns_domain }}
+        mode: "0644"
+      register: lab_dns_dropin
+
+    - name: Restart systemd-resolved to pick up the home.arpa route
+      ansible.builtin.systemd:
+        name: systemd-resolved
+        state: restarted
+      when: lab_dns_dropin.changed
+
 # Lab router/NAT gateway for the routed lab subnet (10.10.10.0/24) that lives on
 # the same physical wire as the LAN. Runs first so lab VMs have a working default
 # gateway before the plays that configure them. See docs/lab-subnet.md.

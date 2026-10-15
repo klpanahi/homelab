@@ -103,10 +103,18 @@ expected, but a "server not found" error is not.
 
 ### Lab VMs
 
-Set a VM's existing `*_nameserver` Terraform variable to `10.10.10.1` when it
-moves onto the lab subnet. Running VMs need the change in-guest as well (the
-netplan `nameservers:` block, then `sudo netplan apply`), because cloud-init
-writes network config only once.
+`site.yml` drops `/etc/systemd/resolved.conf.d/home-arpa.conf` on every managed
+VM except the router. It makes `10.10.10.1` the resolver for `home.arpa` only
+(a systemd-resolved routing domain, `Domains=~home.arpa`), so lab VMs reach each
+other by name while public lookups stay on the `*_nameserver` from Terraform.
+This applies to running VMs without editing the netplan cloud-init wrote, and
+the server and zone live in `lab_dns_server` / `lab_dns_domain` in
+`ansible/group_vars/all/vars.yml`. Check it on a VM:
+
+```bash
+resolvectl domain                 # ~home.arpa on the main link
+getent hosts docker.home.arpa     # 10.10.10.20
+```
 
 ## mDNS / avahi
 
@@ -115,10 +123,9 @@ are still answered by avahi over multicast, and `home.arpa` is ordinary unicast
 DNS. The two zones don't overlap, and clients query each one the right way on
 their own.
 
-The plan is to replace mDNS, not to run both forever. As services move to fixed
-addresses, give each one a record here and switch its consumers from `X.local` to
-`X.home.arpa`. For example, nginx-internal's upstream (in the party-time repo) and
-`backup_docker_host` in `ansible/roles/backup/defaults/main.yml`. Once nothing
+Service-to-service traffic now uses `home.arpa`: the backup job reaches
+`docker.home.arpa` and `homeassistant.home.arpa`, and party-time's nginx
+upstreams (in the party-time repo) point at `docker.home.arpa`. Once nothing
 resolves a `.local` name, avahi can come out of the `tag_ansible` play in
 `site.yml`. That removes the failure class the `fix-homelab-mdns` skill exists
 for: a moved lease silently changing what a name means.
