@@ -2,7 +2,7 @@
 # Managed by Ansible (immich role). Local edits will be overwritten.
 #
 # Backs up every Immich instance's library to each restic repository configured
-# in /etc/immich-backup/*.env (homelab2's restic server, and B2 once set up).
+# in /etc/immich-backup/*.env (today, homelab2's restic server).
 # One failing destination doesn't stop the others; the script exits non-zero if
 # any failed, so the systemd unit shows as failed.
 set -uo pipefail

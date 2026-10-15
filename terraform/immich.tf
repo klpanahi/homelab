@@ -6,7 +6,7 @@
 # Photos and Immich's databases live on a second disk (virtio1), so the root
 # disk can be rebuilt without touching the library. Ansible formats and mounts
 # it at /srv/immich (ansible/roles/immich). Its backups go off this host, to
-# the restic server on the docker VM (homelab2) and to Backblaze B2.
+# the restic server on the docker VM (homelab2).
 #
 # Reuses proxmox_download_file.ubuntu_noble_cloud_image_homelab1 from backup.tf.
 

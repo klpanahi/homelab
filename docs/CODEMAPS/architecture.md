@@ -27,7 +27,7 @@ Proxmox Node (homelab1, 192.168.68.75) — STANDALONE, not clustered with homela
   │                          backups from homelab2 over the LAN — see Backup
   │                          Strategy below)
   └── VM 301: immich        (Immich instances + shared ML; restic backups to
-                             the docker VM and Backblaze B2 — docs/immich.md)
+                             the docker VM — docs/immich.md)
 ```
 
 homelab1 and homelab2 are two independent, uncoupled Proxmox installs — homelab1's

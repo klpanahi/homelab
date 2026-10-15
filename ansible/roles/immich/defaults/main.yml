@@ -30,11 +30,6 @@ immich_backup_rest_user: immich
 immich_backup_rest_password: "{{ vault_restic_server_password }}"
 immich_backup_restic_password: "{{ vault_immich_restic_password }}"
 
-immich_backup_b2_bucket: ""
-immich_backup_b2_endpoint: ""
-immich_backup_b2_key_id: "{{ vault_b2_key_id | default('') }}"
-immich_backup_b2_key: "{{ vault_b2_application_key | default('') }}"
-
 # Regenerable from the originals, so not worth backing up.
 immich_backup_excludes:
   - thumbs

@@ -23,7 +23,7 @@ immich_instances:
     db_password: "{{ vault_immich_db_passwords.personal }}"
     public_share:
       port: 3000
-      base_url: https://share.panahi-systems.com
+      base_url: https://immich-shared.panahi-systems.com
 
   # Austin's instance. Public on the Cloudflare Tunnel at
   # austins-photos.panahi-systems.com.
@@ -33,14 +33,7 @@ immich_instances:
 
 # ── Backups (restic) ─────────────────────────────────────────────────────────
 # Every instance's library (photos plus the database dumps Immich writes to
-# library/backups every night) goes to two restic repositories:
-#
-#   1. the restic server on the docker VM (homelab2): a different machine
-#   2. Backblaze B2 through its S3 API: a different building
-#
-# B2 is skipped until immich_backup_b2_bucket is set, so the role can be applied
-# before the bucket exists. Credentials live in group_vars/all/vault.yml.
+# library/backups every night) goes to the restic server on the docker VM
+# (homelab2), a different machine. There is no offsite copy: both hosts are in
+# the same building. Credentials live in group_vars/all/vault.yml.
 immich_backup_rest_url: "http://10.10.10.20:8000"
-immich_backup_b2_bucket: ""
-# The bucket's S3 endpoint, shown on its page in the B2 web UI.
-immich_backup_b2_endpoint: ""

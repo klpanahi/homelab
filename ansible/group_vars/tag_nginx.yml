@@ -45,7 +45,7 @@ nginx_vhosts:
   # Share links from the personal instance, served by Immich Public Proxy. Only
   # shared photos and albums are reachable here, never the personal login.
   - listen: "80"
-    server_name: "share.panahi-systems.com"
+    server_name: "immich-shared.panahi-systems.com"
     filename: "immich-share.conf"
     extra_parameters: |
       location / {

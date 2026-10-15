@@ -97,7 +97,7 @@
 
 # Immich photo servers on homelab1 (docs/immich.md). One compose project per
 # instance in group_vars/tag_immich.yml, plus a shared ML container and a
-# nightly restic backup to homelab2 and Backblaze B2.
+# nightly restic backup to the docker VM on homelab2.
 - name: Configure Immich hosts
   hosts: tag_immich
   become: true

@@ -11,7 +11,7 @@ touching the personal library.
 | Instances | [`ansible/group_vars/tag_immich.yml`](../ansible/group_vars/tag_immich.yml) |
 | Role | [`ansible/roles/immich`](../ansible/roles/immich) |
 | Version | `immich_version` in the role defaults (all instances share one) |
-| Backups | restic, nightly at 04:15, to homelab2 and Backblaze B2 |
+| Backups | restic, nightly at 04:15, to the docker VM on homelab2 |
 
 homelab1 hosts it because homelab2's 8 GB is already overcommitted (see the
 Hardware section of `agent.md`).
@@ -21,7 +21,7 @@ Hardware section of `agent.md`).
 | Instance | Port | Address | Reached from |
 |---|---|---|---|
 | `personal` | 2283 | `http://photos.home.arpa` | Home Wi-Fi and the Deco's WireGuard VPN only |
-| `personal` share links | 3000 | `https://share.panahi-systems.com` | Internet, shared items only |
+| `personal` share links | 3000 | `https://immich-shared.panahi-systems.com` | Internet, shared items only |
 | `austin` | 2284 | `https://austins-photos.panahi-systems.com` | Internet, via the Cloudflare Tunnel |
 
 - **Personal.** `photos.home.arpa` is an alias to `router` in
@@ -49,28 +49,23 @@ to upload to the public instance from outside the house.
    `ansible/group_vars/all/vault.yml.example` to `group_vars/all/vault.yml`
    (`ansible-vault edit`). Keep a copy of `vault_immich_restic_password` in a
    password manager: without it the backups can't be read.
-2. **Backblaze B2.** Create a private bucket and an application key limited to
-   it. Put the key in the vault (`vault_b2_key_id`, `vault_b2_application_key`)
-   and set `immich_backup_b2_bucket` and `immich_backup_b2_endpoint` (the S3
-   endpoint shown on the bucket's page) in `group_vars/tag_immich.yml`. Until the
-   bucket is set, backups go to homelab2 only.
-3. **Terraform.** `terraform apply` creates the immich VM and adds the 100 GB
+2. **Terraform.** `terraform apply` creates the immich VM and adds the 100 GB
    restic disk to the docker VM (`docker_restic_disk_gb`). Check the plan first:
    the docker VM must show as updated in place, not replaced.
-4. **Collections.** `ansible-galaxy install -r requirements.yml` (adds
+3. **Collections.** `ansible-galaxy install -r requirements.yml` (adds
    `community.general`).
-5. **DNS and the docker VM.**
+4. **DNS and the docker VM.**
    `ansible-playbook site.yml --limit tag_router,tag_docker` publishes
    `photos.home.arpa` and starts the restic server on the docker VM.
-6. **Immich.** `ansible-playbook site.yml --limit tag_immich`.
-7. **Proxies.** `ansible-playbook site.yml --limit tag_nginx,tag_nginx_internal`.
-8. **Tunnel hostnames.** Add `austins-photos.panahi-systems.com` and
-   `share.panahi-systems.com` as public hostnames on the existing tunnel, pointing
+5. **Immich.** `ansible-playbook site.yml --limit tag_immich`.
+6. **Proxies.** `ansible-playbook site.yml --limit tag_nginx,tag_nginx_internal`.
+7. **Tunnel hostnames.** Add `austins-photos.panahi-systems.com` and
+   `immich-shared.panahi-systems.com` as public hostnames on the existing tunnel, pointing
    at the same nginx service party-time's hostname uses.
-9. **First login.** Open each instance and create its admin account. On the
+8. **First login.** Open each instance and create its admin account. On the
    personal instance, set **Administration → Settings → Server → External
-   domain** to `https://share.panahi-systems.com`, so share links use the proxy.
-10. **Check a backup.** `sudo systemctl start immich-backup.service`, then
+   domain** to `https://immich-shared.panahi-systems.com`, so share links use the proxy.
+9. **Check a backup.** `sudo systemctl start immich-backup.service`, then
     `journalctl -u immich-backup -e` on the immich VM.
 
 ## Moving the Google Photos library
@@ -109,10 +104,10 @@ One-time, into the personal instance:
 - **What:** every instance's library, including `library/backups`, where Immich
   writes its own database dump every night at 02:00. Thumbnails and transcoded
   video are skipped because Immich regenerates them.
-- **Where:** each repository in `/etc/immich-backup/*.env`:
-  - `homelab2`: the restic REST server on the docker VM
-    (`10.10.10.20:8000`, data on its `/srv/restic` disk). A different machine.
-  - `b2`: Backblaze B2. A different building.
+- **Where:** the restic REST server on the docker VM (`10.10.10.20:8000`, data
+  on its `/srv/restic` disk), set in `/etc/immich-backup/homelab2.env`. A
+  different machine, but the same building: there is no offsite copy. Another
+  destination can be added later as another `.env` file in that directory.
 - **History:** 30 daily and 12 monthly snapshots.
 - **Health:** `/var/lib/immich-backup/LAST_SUCCESS_<repo>` holds the time of the
   last good run. Like the other backups here, nothing alerts on it yet.
@@ -122,7 +117,7 @@ One-time, into the personal instance:
 On the immich VM, as root:
 
 ```bash
-set -a; . /etc/immich-backup/homelab2.env; set +a   # or b2.env
+set -a; . /etc/immich-backup/homelab2.env; set +a
 restic snapshots
 restic restore latest --target /srv/restore --include /srv/immich/personal/library
 ```

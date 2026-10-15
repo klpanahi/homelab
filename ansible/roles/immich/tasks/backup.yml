@@ -1,6 +1,6 @@
 ---
 # Nightly restic backup of every instance's library to the restic server on the
-# docker VM (homelab2) and, once a bucket is configured, to Backblaze B2.
+# docker VM (homelab2).
 # The library includes library/backups, where Immich writes its own nightly
 # database dump, so this covers photos and databases. docs/immich.md has the
 # restore steps.
@@ -35,26 +35,6 @@
       {{ immich_backup_rest_url | regex_replace('^(https?://)', '\1'
          ~ (immich_backup_rest_user | urlencode | replace('/', '%2F')) ~ ':'
          ~ (immich_backup_rest_password | urlencode | replace('/', '%2F')) ~ '@') }}
-
-- name: Write the Backblaze B2 repository settings
-  ansible.builtin.copy:
-    dest: /etc/immich-backup/b2.env
-    mode: "0600"
-    content: |
-      RESTIC_REPOSITORY={{ ('s3:https://' ~ _endpoint ~ '/' ~ immich_backup_b2_bucket ~ '/immich') | quote }}
-      AWS_ACCESS_KEY_ID={{ immich_backup_b2_key_id | quote }}
-      AWS_SECRET_ACCESS_KEY={{ immich_backup_b2_key | quote }}
-      RESTIC_PASSWORD={{ immich_backup_restic_password | quote }}
-  no_log: true
-  when: immich_backup_b2_bucket | length > 0
-  vars:
-    _endpoint: "{{ immich_backup_b2_endpoint | regex_replace('^https?://', '') }}"
-
-- name: Remove Backblaze B2 settings while no bucket is configured
-  ansible.builtin.file:
-    path: /etc/immich-backup/b2.env
-    state: absent
-  when: immich_backup_b2_bucket | length == 0
 
 - name: Install the backup script
   ansible.builtin.template:
