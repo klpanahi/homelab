@@ -1,0 +1,10 @@
+# Variables for the Proxmox hypervisors (inventory/hosts.yml).
+# Consumed by the repo-owned roles/proxmox_host role.
+
+# Both hosts' onboard NIC is an Intel I219 (e1000e driver), which hangs under
+# load with offloads on: "transmit queue 0 timed out ... Reset adapter
+# unexpectedly", the link drops, and everything behind the switch goes with it.
+# On 2026-10-16 homelab2 reset 347 times in under five hours. Turning the
+# offloads off is the standard Proxmox workaround.
+proxmox_host_offload_off_nics:
+  - enp0s31f6
