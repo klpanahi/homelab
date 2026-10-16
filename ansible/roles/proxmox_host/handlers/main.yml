@@ -1,0 +1,9 @@
+---
+- name: Reapply NIC offloads
+  ansible.builtin.systemd:
+    name: "nic-offload@{{ item }}.service"
+    state: restarted
+    daemon_reload: true
+  loop: "{{ proxmox_host_offload_off_nics }}"
+  # Same as the start task in tasks/main.yml: no unit file exists under --check.
+  ignore_errors: "{{ ansible_check_mode }}"

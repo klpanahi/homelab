@@ -24,6 +24,7 @@ ansible/collections/
 ansible/roles/*
 !ansible/roles/backup/
 !ansible/roles/router/
+!ansible/roles/proxmox_host/
 
 # Credentials — never commit. Only *.example files are tracked.
 *.tfvars

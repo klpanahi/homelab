@@ -7,6 +7,14 @@
 # tag_cloudflared == VMs that should run a Cloudflare tunnel (subset of nginx VMs
 #                   that are externally exposed; internal-only nginx VMs omit this tag).
 # tag_router     == the lab router/NAT gateway VM (see terraform/router.tf).
+# proxmox_hosts  == the hypervisors (static, inventory/hosts.yml).
+
+# The Proxmox hypervisors themselves (inventory/hosts.yml), not their VMs.
+# Host-level fixes that would otherwise be hand edits on each box.
+- name: Configure Proxmox hosts
+  hosts: proxmox_hosts
+  roles:
+    - proxmox_host
 
 # The router VM is excluded: it holds both a LAN and a lab address on one NIC,
 # and avahi publishes every address on an interface. LAN clients would resolve
