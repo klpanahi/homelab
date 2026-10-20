@@ -129,11 +129,11 @@ for the design rationale (pull model, no offsite copy, no encryption).
 | Var (defaults/main.yml) | Default | Notes |
 |---|---|---|
 | `backup_root` | `/var/backups/homelab` | root of all backup artifacts |
-| `backup_ha_url` | `http://192.168.68.60:8123` | HA Core API |
+| `backup_ha_url` | `http://homeassistant.home.arpa:8123` | HA Core API |
 | `backup_ha_token` | `{{ vault_ha_token }}` | HA long-lived admin token |
 | `backup_ha_agent_id` | `hassio.local` | the `backup` integration's local storage agent, confirmed via `backup/agents/info` |
 | `backup_ha_create_timeout` | `1800` (seconds) | how long to wait for HA to finish generating a backup |
-| `backup_docker_host` / `_user` | `10.10.10.20` / `ubuntu` | SSH target for pg_dump |
+| `backup_docker_host` / `_user` | `docker.home.arpa` / `ubuntu` | SSH target for pg_dump |
 | `backup_ssh_key_path` | `/root/.ssh/id_backup` | private half of `vault_backup_ssh_private_key`, installed by this role |
 | `backup_pg_container` / `_database` / `_schema` | `party-time-db` / `party_time` / `party_time` | app data lives in the `party_time` schema, NOT `public` |
 | `backup_ha_retention_days` / `backup_pg_retention_days` | `14` / `30` | local pruning |

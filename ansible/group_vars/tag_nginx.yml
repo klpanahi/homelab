@@ -6,7 +6,7 @@
 
 nginx_remove_default_vhost: true
 
-# party-time's vhost, upstream (public_backend -> docker.local:8080), and
+# party-time's vhost, upstream (public_backend -> docker.home.arpa:8080), and
 # static root (/var/www/invitee-ui) now live in the party-time repo
 # (deploy/nginx/public.conf) and are applied by that repo's
 # deploy/party-time.yml. homelab only installs and baseline-configures nginx

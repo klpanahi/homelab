@@ -1,11 +1,11 @@
 # Variables for the tag_nginx-internal group (VMs tagged "nginx-internal" in Proxmox).
 # Consumed by the geerlingguy.nginx role.
 # This VM is LAN-only — no Cloudflare tunnel. Serves the admin UI and proxies
-# the admin API to the backend Docker VM via mDNS hostname.
+# the admin API to the backend Docker VM by its internal DNS name.
 
 nginx_remove_default_vhost: true
 
-# party-time's vhost, upstream (admin_backend -> docker.local:8081), and
+# party-time's vhost, upstream (admin_backend -> docker.home.arpa:8081), and
 # static root (/var/www/admin-ui) now live in the party-time repo
 # (deploy/nginx/admin.conf) and are applied by that repo's
 # deploy/party-time.yml. homelab only installs and baseline-configures nginx

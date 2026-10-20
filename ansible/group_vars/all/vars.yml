@@ -13,3 +13,9 @@
 # the keypair exists can't write a junk entry into a production VM's
 # authorized_keys.
 backup_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIItFWsL3KimcdtsMDxIp/BdYB2JHQXK+X/3TQsdG3SwC backup@homelab1"
+
+# Internal DNS for lab VMs. site.yml points home.arpa lookups at the router's
+# dnsmasq (its lab-side address) so services can reach each other by name, e.g.
+# docker.home.arpa. Records live in ansible/dns/records.yml.
+lab_dns_server: 10.10.10.1
+lab_dns_domain: home.arpa

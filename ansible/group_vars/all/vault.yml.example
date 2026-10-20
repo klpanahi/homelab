@@ -17,7 +17,7 @@ proxmox_token_secret: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 proxmox_token_secret_homelab1: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
 # vault_ha_token is a Home Assistant long-lived access token for an ADMIN
-# user, used by the backup role to call HA's API at http://192.168.68.60:8123
+# user, used by the backup role to call HA's API at http://homeassistant.home.arpa:8123
 # to trigger/fetch a Home Assistant backup over HTTP. Create one from the HA
 # web UI: profile -> Security -> Long-lived access tokens.
 vault_ha_token: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
