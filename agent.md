@@ -116,6 +116,19 @@ Consequences worth remembering, with the full runbook in
 
 ---
 
+## Change Workflow
+
+Changes are applied from their feature branch, and merged only once they work.
+
+1. Make the change on a feature branch and open a pull request (a draft is fine).
+2. Check out that branch and run `terraform apply` / `ansible-playbook` from it against the real hosts.
+3. Fix whatever the apply turns up with more commits on the same branch, and apply again.
+4. Merge the pull request once the change is applied and working, so `main` only ever holds what is actually running.
+
+Never apply from `main` with unmerged changes on top of it, and never merge a change that hasn't been applied: either way `main` stops describing the homelab.
+
+---
+
 ## Open Decisions
 
 - Which services run on which machine; split for redundancy vs. single host with cross-machine backup

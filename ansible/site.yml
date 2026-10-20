@@ -96,6 +96,8 @@
   become: true
   roles:
     - geerlingguy.docker
+    # Off-host backup target for the Immich VM on homelab1. See docs/immich.md.
+    - restic_server
   # roles: run before tasks: in a play, so this lands after geerlingguy.docker
   # has created the ubuntu user / docker group setup, which is fine.
   tasks:
@@ -120,6 +122,16 @@
   become: true
   roles:
     - geerlingguy.nginx
+
+# Immich photo servers on homelab1 (docs/immich.md). One compose project per
+# instance in group_vars/tag_immich.yml, plus a shared ML container and a
+# nightly restic backup to the docker VM on homelab2.
+- name: Configure Immich hosts
+  hosts: tag_immich
+  become: true
+  roles:
+    - geerlingguy.docker
+    - immich
 
 # The backup VM lives on homelab1 — deliberately a different physical
 # machine from the workloads it backs up (docker VM, Home Assistant), so a

@@ -1,0 +1,23 @@
+# {{ ansible_managed }}
+# One machine-learning container shared by every Immich instance on this VM.
+# Instances reach it on the immich-ml network as immich-machine-learning:3003.
+
+name: immich-ml
+
+services:
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:{{ immich_version }}
+    volumes:
+      - model-cache:/cache
+    networks:
+      - immich-ml
+    restart: always
+    healthcheck:
+      disable: false
+
+networks:
+  immich-ml:
+    name: immich-ml
+
+volumes:
+  model-cache:

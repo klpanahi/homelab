@@ -1,0 +1,39 @@
+# Immich instances on the immich VM (homelab1, 10.10.10.50). Consumed by the
+# immich role. Design and runbook: docs/immich.md
+#
+# Each entry is a separate Immich: its own server, Postgres, Redis and photo
+# library under /srv/immich/<name>. All of them share one machine-learning
+# container. Adding an instance = a new entry + its vault password + a vhost
+# (nginx-internal for LAN-only, nginx-cloudflared for public).
+#
+#   name          compose project immich-<name>, data in /srv/immich/<name>
+#   port          host port for the Immich web UI/API (container port 2283)
+#   db_password   Postgres password, A-Za-z0-9 only (Immich's own rule)
+#   public_share  optional: run Immich Public Proxy next to this instance so
+#                 share links work from the internet while the instance itself
+#                 stays private. base_url = the public hostname on the tunnel,
+#                 which must also be set as the instance's "External domain"
+#                 (Administration > Settings > Server).
+
+immich_instances:
+  # Personal library. LAN and WireGuard only: photos.home.arpa through the
+  # router front door. Never on the tunnel itself.
+  - name: personal
+    port: 2283
+    db_password: "{{ vault_immich_db_passwords.personal }}"
+    public_share:
+      port: 3000
+      base_url: https://immich-shared.panahi-systems.com
+
+  # Austin's instance. Public on the Cloudflare Tunnel at
+  # austins-photos.panahi-systems.com.
+  - name: austin
+    port: 2284
+    db_password: "{{ vault_immich_db_passwords.austin }}"
+
+# ── Backups (restic) ─────────────────────────────────────────────────────────
+# Every instance's library (photos plus the database dumps Immich writes to
+# library/backups every night) goes to the restic server on the docker VM
+# (homelab2), a different machine. There is no offsite copy: both hosts are in
+# the same building. Credentials live in group_vars/all/vault.yml.
+immich_backup_rest_url: "http://10.10.10.20:8000"

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Managed by Ansible (immich role). Local edits will be overwritten.
+#
+# Backs up every Immich instance's library to each restic repository configured
+# in /etc/immich-backup/*.env (today, homelab2's restic server).
+# One failing destination doesn't stop the others; the script exits non-zero if
+# any failed, so the systemd unit shows as failed.
+set -uo pipefail
+
+PATHS=(
+{% for instance in immich_instances %}
+  "{{ immich_data_root }}/{{ instance.name }}/library"
+{% endfor %}
+)
+EXCLUDES=(
+{% for instance in immich_instances %}
+{% for dir in immich_backup_excludes %}
+  --exclude "{{ immich_data_root }}/{{ instance.name }}/library/{{ dir }}"
+{% endfor %}
+{% endfor %}
+)
+
+status=0
+for env in /etc/immich-backup/*.env; do
+  dest="$(basename "${env}" .env)"
+  echo "Backing up to ${dest}..."
+  # Not written as `if ( ... )`: bash ignores set -e inside an if condition.
+  (
+    set -euo pipefail
+    set -a
+    # shellcheck disable=SC1090
+    . "${env}"
+    set +a
+    # First run against an empty repository: create it.
+    restic cat config >/dev/null 2>&1 || restic init
+    restic backup --tag immich "${EXCLUDES[@]}" "${PATHS[@]}"
+    restic forget --tag immich --prune \
+      --keep-daily {{ immich_backup_keep_daily }} \
+      --keep-monthly {{ immich_backup_keep_monthly }}
+  )
+  if [[ $? -eq 0 ]]; then
+    date -u +%Y-%m-%dT%H:%M:%SZ > "{{ immich_backup_root }}/LAST_SUCCESS_${dest}"
+  else
+    echo "ERROR: backup to ${dest} failed" >&2
+    status=1
+  fi
+done
+
+exit "${status}"

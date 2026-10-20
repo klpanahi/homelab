@@ -11,3 +11,48 @@ nginx_remove_default_vhost: true
 # (deploy/nginx/public.conf) and are applied by that repo's
 # deploy/party-time.yml. homelab only installs and baseline-configures nginx
 # here (see site.yml) — it no longer defines any party-time-specific vhost.
+
+# Public Immich hostnames (docs/immich.md). cloudflared hands requests to this
+# nginx, which routes by hostname to the immich VM. Each hostname also needs a
+# Public Hostname entry on the tunnel in the Cloudflare dashboard. Cloudflare
+# terminates TLS, so X-Forwarded-Proto is always https.
+nginx_vhosts:
+  # Austin's instance.
+  - listen: "80"
+    server_name: "austins-photos.panahi-systems.com"
+    filename: "immich-austin.conf"
+    extra_parameters: |
+      # Settings from https://docs.immich.app/administration/reverse-proxy
+      # Cloudflare's free plan still caps a single upload at 100 MB.
+      client_max_body_size 50000M;
+      proxy_request_buffering off;
+      proxy_read_timeout 600s;
+      proxy_send_timeout 600s;
+      send_timeout 600s;
+
+      location / {
+          proxy_pass http://10.10.10.50:2284;
+          proxy_http_version 1.1;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto https;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";
+          proxy_redirect off;
+      }
+
+  # Share links from the personal instance, served by Immich Public Proxy. Only
+  # shared photos and albums are reachable here, never the personal login.
+  - listen: "80"
+    server_name: "immich-shared.panahi-systems.com"
+    filename: "immich-share.conf"
+    extra_parameters: |
+      location / {
+          proxy_pass http://10.10.10.50:3000;
+          proxy_http_version 1.1;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto https;
+      }

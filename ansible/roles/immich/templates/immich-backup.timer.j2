@@ -1,0 +1,10 @@
+[Unit]
+Description=Schedule the Immich restic backup
+
+[Timer]
+OnCalendar={{ immich_backup_oncalendar }}
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

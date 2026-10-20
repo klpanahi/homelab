@@ -37,9 +37,12 @@ router_dns_hosts:
   - { name: docker, ip: 10.10.10.20 }
   - { name: backup, ip: 10.10.10.30 }
   - { name: nginx-internal, ip: 10.10.10.40 }
+  - { name: immich, ip: 10.10.10.50 }
 
 # Websites for the Wi-Fi. Each points at the router; nginx-internal needs a vhost
 # with a matching server_name (party-time's lives in the party-time repo).
 router_dns_aliases:
   # party-time admin UI
   - { name: partytime, target: router }
+  # Personal Immich (docs/immich.md). LAN and WireGuard only.
+  - { name: photos, target: router }
