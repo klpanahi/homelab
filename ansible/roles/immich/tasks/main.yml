@@ -19,6 +19,50 @@
       {{ immich_instances | map(attribute='port') | list
          + immich_instances | selectattr('public_share', 'defined') | map(attribute='public_share.port') | list }}
 
+# ── Swap ─────────────────────────────────────────────────────────────────────
+
+- name: Create the swap file
+  ansible.builtin.command:
+    cmd: "fallocate -l {{ immich_swap_size_mb }}M {{ immich_swap_file }}"
+    creates: "{{ immich_swap_file }}"
+  when: immich_swap_size_mb | int > 0
+  register: immich_swap_created
+
+- name: Restrict the swap file to root
+  ansible.builtin.file:
+    path: "{{ immich_swap_file }}"
+    mode: "0600"
+  when: immich_swap_size_mb | int > 0
+
+- name: Format the swap file
+  ansible.builtin.command:
+    cmd: "mkswap {{ immich_swap_file }}"
+  when: immich_swap_created is changed
+  changed_when: true
+
+- name: Add the swap file to fstab
+  ansible.posix.mount:
+    path: none
+    src: "{{ immich_swap_file }}"
+    fstype: swap
+    opts: sw
+    state: present
+  when: immich_swap_size_mb | int > 0
+
+- name: List active swap
+  ansible.builtin.command:
+    cmd: swapon --show=NAME --noheadings
+  register: immich_swap_active
+  changed_when: false
+
+- name: Turn the swap file on
+  ansible.builtin.command:
+    cmd: "swapon {{ immich_swap_file }}"
+  when:
+    - immich_swap_size_mb | int > 0
+    - immich_swap_file not in immich_swap_active.stdout_lines
+  changed_when: true
+
 # ── Data disk ────────────────────────────────────────────────────────────────
 
 # Only creates a filesystem on a blank device; an existing one is left alone.

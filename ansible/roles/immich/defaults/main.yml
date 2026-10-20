@@ -18,6 +18,13 @@ immich_public_proxy_image: docker.io/alangrainger/immich-public-proxy:3.4.1
 immich_data_device: /dev/vdb
 immich_data_root: /srv/immich
 
+# Swap file on the root disk. Two Immich servers starting at once, plus the
+# ML container, briefly need more than the VM's 4 GB; without swap the kernel
+# thrashes page cache and OOM-kills a server, which restarts and does it again.
+# 0 = no swap file.
+immich_swap_size_mb: 4096
+immich_swap_file: /swapfile
+
 # Compose projects live here; data lives under immich_data_root.
 immich_compose_root: /opt/immich
 
