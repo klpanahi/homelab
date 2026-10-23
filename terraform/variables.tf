@@ -216,26 +216,17 @@ variable "nginx_internal_nameserver" {
 }
 
 # ── homelab1 node ────────────────────────────────────────────────────────────
-
-variable "proxmox_homelab1_endpoint" {
-  description = "Proxmox API URL for the standalone homelab1 host, e.g. https://192.168.68.75:8006"
-  type        = string
-  default     = "https://192.168.68.75:8006"
-}
-
-variable "proxmox_homelab1_api_token" {
-  description = "API token for homelab1 in format 'user@realm!token_id=secret'"
-  type        = string
-  sensitive   = true
-}
+# homelab1 is the second member of the cluster. It is reached through the same
+# API endpoint and token as homelab2; only its node name and SSH host differ.
 
 variable "proxmox_homelab1_node" {
-  description = "Proxmox node name as reported by homelab1's own /api2/json/nodes. homelab1 is not clustered with homelab2, so this is not yet known and must be filled in by querying that API directly."
+  description = "Proxmox node name of the homelab1 cluster member, as listed by /api2/json/nodes"
   type        = string
+  default     = "homelab1"
 }
 
 variable "proxmox_homelab1_ssh_host" {
-  description = "IP or hostname used to SSH into the homelab1 Proxmox node (root)"
+  description = "IP or hostname used to SSH into the homelab1 Proxmox node (root). The provider uploads cloud-init snippets to homelab1 over this connection."
   type        = string
   default     = "192.168.68.75"
 }

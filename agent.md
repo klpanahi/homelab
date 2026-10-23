@@ -23,7 +23,7 @@ Design notes that are not a system map live alongside them:
 
 ## Why Proxmox
 
-Designed for headless, always-on server use with a full REST API (usable with Terraform), native backup scheduling and PBS integration, and equal support for Linux VMs, Windows VMs, and LXC containers. Each machine manages its own VMs independently. The two hosts are **standalone, not clustered**: each has its own API and token (homelab1 rejects homelab2's), so Terraform reaches homelab1 through its own provider alias and Ansible through its own inventory source. No live migration or shared storage.
+Designed for headless, always-on server use with a full REST API (usable with Terraform), native backup scheduling and PBS integration, and equal support for Linux VMs, Windows VMs, and LXC containers. The two hosts form one **2-node Proxmox cluster** (`homelab`): one API, one token, one inventory source, and Terraform picks a host with `node_name` alone. There is no shared storage, so moving a VM is an offline/local-disk migration, and there is no QDevice: if one node is down, the other loses quorum until you run `pvecm expected 1` on it. See `docs/cluster.md`.
 
 ---
 
