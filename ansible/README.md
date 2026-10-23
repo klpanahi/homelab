@@ -13,12 +13,14 @@ ansible/
   ansible.cfg              # inventory, vault, SSH defaults
   requirements.yml         # community.proxmox collection + geerlingguy.nginx role
   inventory/proxmox.yml    # dynamic inventory (tags -> groups, agent IP -> ansible_host)
+  inventory/hosts.yml      # static inventory: the Proxmox hosts themselves (proxmox_hosts)
   group_vars/
     all/vars.yml           # non-secret shared vars (optional)
     all/vault.yml          # GITIGNORED — vaulted proxmox_token_secret
     tag_nginx.yml          # nginx role variables
     tag_router.yml         # lab router/NAT variables
   roles/router/            # repo-owned role (lab router: forwarding + nftables)
+  roles/proxmox_host/      # repo-owned role (hypervisor fixes: NIC offloads)
   site.yml                 # top-level playbook
 ```
 
@@ -68,6 +70,10 @@ ansible-playbook site.yml
 
 ## Notes
 
+- The `proxmox_hosts` play targets the hypervisors, not VMs, over SSH as root.
+  It turns off offloads on the Intel I219 NIC (e1000e), which otherwise hangs
+  and resets the link under load. Apply it alone with
+  `ansible-playbook site.yml --limit proxmox_hosts`.
 - The `tag_router` play configures the lab subnet gateway (IP forwarding +
   nftables masquerade). It needs the `ansible.posix` collection for the `sysctl`
   module — Homebrew's Ansible already bundles it (and `community.proxmox`), so

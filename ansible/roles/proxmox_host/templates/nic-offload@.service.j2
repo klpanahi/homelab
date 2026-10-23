@@ -1,0 +1,18 @@
+# MANAGED BY ANSIBLE (ansible/roles/proxmox_host) — local edits are overwritten.
+#
+# Turns off offloads on NIC %i. Bound to the NIC's device unit, so it runs at
+# boot and again if the NIC disappears and comes back. A systemd unit rather than
+# a post-up line keeps it out of /etc/network/interfaces, which the Proxmox UI
+# rewrites.
+[Unit]
+Description=Disable offloads on %i (e1000e hang workaround)
+BindsTo=sys-subsystem-net-devices-%i.device
+After=sys-subsystem-net-devices-%i.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/ethtool -K %i {{ proxmox_host_offload_features }}
+
+[Install]
+WantedBy=sys-subsystem-net-devices-%i.device
