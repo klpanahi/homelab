@@ -45,7 +45,7 @@ variable "haos_mac_address" {
 }
 
 variable "haos_static_ip" {
-  description = "Static IP with CIDR prefix for Home Assistant VM, e.g. 192.168.68.60/24 (held by a Deco address reservation on haos_mac_address). Leave empty to keep DHCP."
+  description = "Static IP with CIDR prefix for Home Assistant VM, e.g. 192.168.68.60/22 (the Deco LAN is a /22). Leave empty (the default) to keep DHCP, which is how HA runs: the Deco reservation on haos_mac_address gives it 192.168.68.60/22 and the router's DNS."
   type        = string
   default     = ""
 }
@@ -57,15 +57,15 @@ variable "haos_gateway" {
 }
 
 variable "haos_nameserver" {
-  description = "DNS nameserver for Home Assistant VM static IP config"
+  description = "DNS nameserver for Home Assistant VM static IP config. The router VM's resolver, so home.arpa names resolve."
   type        = string
-  default     = "8.8.8.8"
+  default     = "192.168.68.100"
 }
 
 variable "haos_network_iface" {
-  description = "Network interface name inside HAOS (enp0s18 for Q35 machine with virtio NIC)"
+  description = "Network interface name inside HAOS (enp6s18 for VM 200: Q35 machine with virtio NIC, checked with `ha network info`)"
   type        = string
-  default     = "enp0s18"
+  default     = "enp6s18"
 }
 
 # ── nginx VM ─────────────────────────────────────────────────────────────────
