@@ -4,17 +4,10 @@
 # proxmox_token_secret is the SECRET half of the Proxmox API token (the part
 # after '=' in terraform.tfvars' proxmox_api_token). The inventory reads it via
 # an ansible.builtin.unvault lookup at parse time (inventory plugins load before
-# group_vars, so it can't be referenced as a plain group var). Any future
+# group_vars, so it can't be referenced as a plain group var). The hosts are
+# one cluster, so this single token covers VMs on both nodes. Any future
 # play-level secrets can live here too.
 proxmox_token_secret: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-
-# proxmox_token_secret_homelab1 is the SECRET half of homelab1's OWN Proxmox
-# API token (root@pam!terraform on homelab1). homelab1 and homelab2 are
-# standalone Proxmox hosts, not clustered, so they each have their own user/
-# token database — this is a distinct secret from proxmox_token_secret above,
-# not a duplicate. Read by inventory/proxmox-homelab1.yml via the same
-# unvault lookup pattern.
-proxmox_token_secret_homelab1: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
 # vault_ha_token is a Home Assistant long-lived access token for an ADMIN
 # user, used by the backup role to call HA's API at http://homeassistant.home.arpa:8123

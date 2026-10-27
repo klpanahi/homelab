@@ -1,20 +1,17 @@
 # The backup VM is deliberately provisioned on homelab1, a physically separate
 # Proxmox host from homelab2 (where every other VM in this repo lives), so that
 # a homelab2 failure — hardware, storage, or otherwise — cannot take out the
-# backups along with the things they're backing up. Every resource below must
-# carry `provider = proxmox.homelab1` and use var.proxmox_homelab1_node; a
-# resource that forgets the provider argument silently targets homelab2
-# instead and could disturb live production VMs there.
+# backups along with the things they're backing up. The two hosts are one
+# Proxmox cluster, so the default provider reaches homelab1 too; every resource
+# below picks it with node_name = var.proxmox_homelab1_node. Don't live-migrate
+# this VM to homelab2 — that would defeat the point.
 #
 # The guest agent is required because the Ansible dynamic inventory resolves
 # ansible_host from the agent-reported IP, same as every other VM here.
 
-# homelab1 needs its own copy of the cloud image: proxmox_download_file.
-# ubuntu_noble_cloud_image in nginx.tf is bound to homelab2's default provider
-# and can't be reused across the provider boundary.
+# homelab1 needs its own copy of the cloud image: the "local" datastore is
+# per-node, so ubuntu_noble_cloud_image in nginx.tf only exists on homelab2.
 resource "proxmox_download_file" "ubuntu_noble_cloud_image_homelab1" {
-  provider = proxmox.homelab1
-
   content_type = "iso"
   datastore_id = "local"
   node_name    = var.proxmox_homelab1_node
@@ -29,8 +26,6 @@ resource "proxmox_download_file" "ubuntu_noble_cloud_image_homelab1" {
 # owns that so config is managed in one place. The guest agent stays because
 # the Proxmox dynamic inventory relies on it to report the VM's IP to Ansible.
 resource "proxmox_virtual_environment_file" "backup_cloud_init" {
-  provider = proxmox.homelab1
-
   content_type = "snippets"
   datastore_id = "local"
   node_name    = var.proxmox_homelab1_node
@@ -81,8 +76,6 @@ locals {
 }
 
 resource "proxmox_virtual_environment_file" "backup_network_config" {
-  provider = proxmox.homelab1
-
   content_type = "snippets"
   datastore_id = "local"
   node_name    = var.proxmox_homelab1_node
@@ -94,8 +87,6 @@ resource "proxmox_virtual_environment_file" "backup_network_config" {
 }
 
 resource "proxmox_virtual_environment_vm" "backup" {
-  provider = proxmox.homelab1
-
   name      = "backup"
   node_name = var.proxmox_homelab1_node
   vm_id     = var.backup_vm_id

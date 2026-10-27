@@ -12,8 +12,7 @@ ansible/
   ansible.cfg                    inventory path (loads whole inventory/ dir), vault,
                                   SSH defaults (remote_user=ubuntu)
   requirements.yml               community.proxmox collection + geerlingguy.nginx role
-  inventory/proxmox.yml          community.proxmox.proxmox dynamic inventory (homelab2)
-  inventory/homelab1.proxmox.yml community.proxmox.proxmox dynamic inventory (homelab1)
+  inventory/proxmox.yml          community.proxmox.proxmox dynamic inventory (cluster API, both nodes)
   group_vars/
     all/vars.yml           non-secret shared vars (incl. backup_ssh_public_key)
     all/vault.yml          GITIGNORED — vaulted secrets
@@ -34,24 +33,21 @@ ansible/
 
 ## Inventory flow
 
-homelab1 and homelab2 are two independent, **standalone** Proxmox hosts — not
-clustered, so there is no single Proxmox API that sees both. Each host gets
-its own inventory source pointed at its own API endpoint; `ansible.cfg` sets
-`inventory = inventory/` (a directory, not a single file) so both sources'
-`tag_*` groups merge into one host list.
+homelab1 and homelab2 are one Proxmox cluster (see [`../cluster.md`](../cluster.md)),
+so a single inventory source pointed at the cluster API sees the VMs on both
+nodes. `ansible.cfg` sets `inventory = inventory/` (a directory), so any extra
+source dropped in there would merge into the same host list.
 
 ```
-inventory/proxmox.yml (homelab2)            inventory/homelab1.proxmox.yml (homelab1)
-  url: https://192.168.68.65:8006             url: https://192.168.68.75:8006
-  token: proxmox_token_secret                  token: proxmox_token_secret_homelab1
-        │                                             │
-        └──────────────────┬──────────────────────────┘
-                            ▼
-              merged inventory: tag_ansible, tag_nginx,
-              tag_docker, tag_nginx_internal, tag_backup, ...
+inventory/proxmox.yml
+  url: https://192.168.68.65:8006   (cluster API — lists homelab1 + homelab2)
+  token: proxmox_token_secret
+        ▼
+  inventory: tag_ansible, tag_nginx, tag_docker,
+             tag_nginx_internal, tag_router, tag_backup, ...
 ```
 
-Both sources: `want_facts: true` (per-VM config + guest-agent data),
+The source sets `want_facts: true` (per-VM config + guest-agent data),
 `keyed_groups: proxmox_tags_parsed → tag_<name>` (Proxmox tags set in
 Terraform), `compose: ansible_host` = first non-loopback IPv4 from
 `proxmox_agent_interfaces`.
@@ -59,17 +55,13 @@ Terraform), `compose: ansible_host` = first non-loopback IPv4 from
 Auth note: inventory plugins load BEFORE group_vars, so token secrets cannot
 be plain `{{ ... }}` group vars — each is pulled via
 `lookup('ansible.builtin.unvault', 'group_vars/all/vault.yml')` at parse time.
-homelab1's token lives under a **distinct** vault key,
-`proxmox_token_secret_homelab1` (both hosts' secrets share one vault file but
-are not the same token — homelab1 has its own user/token database).
 
 **Gotcha — inventory plugin filename requirement**: `community.proxmox.proxmox`'s
 `verify_file()` requires the filename to literally **end in** `.proxmox.yml` /
 `.proxmox.yaml`. A file that merely contains "proxmox" elsewhere in its name
 (e.g. `proxmox-homelab1.yml`) is **silently declined** — no error, just a
 generic "unable to parse" warning — and that inventory source is dropped
-entirely. This is why the second source is named `homelab1.proxmox.yml`, not
-`proxmox-homelab1.yml` or `proxmox_homelab1.yml`.
+entirely. Name any additional source `<name>.proxmox.yml`.
 
 ## Groups produced
 
@@ -79,12 +71,12 @@ entirely. This is why the second source is named `homelab1.proxmox.yml`, not
 | `tag_ansible` | all VMs | Proxmox tag `ansible` (every managed VM carries it) |
 | `tag_docker` | docker | Proxmox tag `docker` |
 | `tag_nginx_internal` | nginx-internal | Proxmox tag `nginx_internal` |
-| `tag_router` | router | Proxmox tag `router` (homelab2 source) |
-| `tag_backup` | backup | Proxmox tag `backup` (homelab1 source) |
+| `tag_router` | router | Proxmox tag `router` |
+| `tag_backup` | backup | Proxmox tag `backup` |
 | `proxmox_all_qemu` / `_all_running` | all VMs | VM type/status |
-| `proxmox_homelab2_qemu` | homeassistant, nginx, docker, nginx-internal | per-node, homelab2 source |
-| `proxmox_homelab1_node`'s qemu group | backup | per-node, homelab1 source |
-| `proxmox_nodes` | homelab2, homelab1 | node, one per inventory source |
+| `proxmox_homelab2_qemu` | homeassistant, nginx, docker, nginx-internal, router | per-node |
+| `proxmox_homelab1_qemu` | backup, immich (immich is not managed by this repo) | per-node |
+| `proxmox_nodes` | homelab2, homelab1 | cluster nodes |
 
 ## Playbook
 

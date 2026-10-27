@@ -23,8 +23,8 @@
 
 | Service | Role |
 |---|---|
-| Proxmox VE (homelab2, 192.168.68.65) | Hypervisor; Terraform target + Ansible inventory source |
-| Proxmox VE (homelab1, 192.168.68.75) | Standalone second hypervisor (backup VM); own provider alias, token, inventory source |
+| Proxmox VE (homelab2, 192.168.68.65) | Cluster node + the API endpoint Terraform and the Ansible inventory use |
+| Proxmox VE (homelab1, 192.168.68.75) | Second cluster node (backup VM); reached through homelab2's cluster API |
 | GitHub (home-assistant/operating-system) | HAOS image download source |
 | Ubuntu cloud-images | Base image for every Ubuntu VM (24.04 noble standard); downloaded once per node |
 | ZeroTier | Mesh VPN for laptop-to-VM access (planned on VMs) |

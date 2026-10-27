@@ -1,5 +1,8 @@
 # Proxmox dynamic inventory.
 #
+# homelab1 and homelab2 form one Proxmox cluster, so this single source — the
+# cluster API on homelab2 — sees the VMs on both nodes. See docs/cluster.md.
+#
 # VMs are discovered from the Proxmox API and grouped by their Proxmox tags
 # (set in Terraform). The nginx VM is tagged "nginx", so it lands in the
 # tag_nginx group that site.yml targets. ansible_host is resolved from the IP
