@@ -8,7 +8,18 @@
 # it at /srv/immich (ansible/roles/immich). Its backups go off this host, to
 # the restic server on the docker VM (homelab2).
 #
-# Reuses proxmox_download_file.ubuntu_noble_cloud_image_homelab1 from backup.tf.
+
+# homelab1 needs its own copy of the cloud image: the "local" datastore is
+# per-node, so ubuntu_noble_cloud_image in nginx.tf only exists on homelab2.
+resource "proxmox_download_file" "ubuntu_noble_cloud_image_homelab1" {
+  content_type = "iso"
+  datastore_id = "local"
+  node_name    = var.proxmox_homelab1_node
+
+  url       = "https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-amd64.img"
+  file_name = "ubuntu-24.04-server-cloudimg-amd64.img"
+  overwrite = false
+}
 
 resource "proxmox_virtual_environment_file" "immich_cloud_init" {
   content_type = "snippets"

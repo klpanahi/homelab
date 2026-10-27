@@ -23,16 +23,16 @@ Proxmox Node (homelab2, 192.168.68.65)
   └── VM: windows           (Windows VM — planned)
 
 Proxmox Node (homelab1, 192.168.68.75) — second member of the "homelab" cluster
-  ├── VM 300: backup        (Ubuntu 24.04 cloud-image, bpg VM resource; pulls
-  │                          backups from homelab2 over the LAN — see Backup
-  │                          Strategy below)
+  ├── CT 300: backup        (unprivileged Ubuntu 24.04 LXC, bpg container
+  │                          resource; pulls backups from homelab2 over the
+  │                          LAN — see Backup Strategy below)
   └── VM 301: immich        (Immich instances + shared ML; restic backups to
                              the docker VM — docs/immich.md)
 ```
 
 homelab1 and homelab2 form a 2-node Proxmox cluster with no QDevice and no shared
 storage — one API and token see both, and losing either node costs quorum until
-`pvecm expected 1` (see [`../cluster.md`](../cluster.md)). The backup VM runs on homelab1 specifically so a homelab2 hardware/storage failure
+`pvecm expected 1` (see [`../cluster.md`](../cluster.md)). The backup LXC runs on homelab1 specifically so a homelab2 hardware/storage failure
 can't take the backups down along with the things they back up.
 
 ## Networking

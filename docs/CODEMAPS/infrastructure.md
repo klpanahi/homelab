@@ -11,7 +11,7 @@ terraform/
   nginx.tf                 nginx VM (bpg VM resource + cloud-init snippets)
   nginx-internal.tf        LAN-only nginx VM
   docker.tf                Docker host VM
-  backup.tf                backup VM on homelab1 (bpg VM resource + cloud-init snippets)
+  backup.tf                backup LXC on homelab1 (bpg container resource)
   immich.tf                immich VM on homelab1 (root disk + 200 GB data disk)
   router.tf                lab subnet router/NAT VM (two IPs on one vNIC)
   variables.tf             all input variables
@@ -45,27 +45,42 @@ Sets HAOS static IP via the QEMU guest agent CLI; only when `haos_static_ip != "
 - Both ignore changes to `initialization` and `operating_system`, which would
   otherwise replace (wipe) the container.
 
-### backup VM (backup.tf)
-Provisioned on **homelab1** — a physically separate cluster node from every
-other VM in this repo, so a homelab2 failure can't take the backups out along
-with the things they back up. Every resource here sets
+### backup LXC (backup.tf)
+Provisioned on **homelab1** — a physically separate cluster node from the
+homelab2 workloads it backs up, so a homelab2 failure can't take the backups
+out along with the things they back up. Every resource here sets
 `node_name = var.proxmox_homelab1_node`; the default provider reaches it
 through the cluster API.
-- `proxmox_download_file.ubuntu_noble_cloud_image_homelab1` — homelab1 needs
-  its own copy of the Ubuntu 24.04 cloud image because the `local` datastore
-  is per-node; the one in nginx.tf only exists on homelab2.
-- `proxmox_virtual_environment_file.backup_cloud_init` — cloud-init user-data:
-  creates `ubuntu` user + installs `qemu-guest-agent` only. **The backup
-  software itself is NOT installed here** — Ansible's `backup` role owns it,
-  same division of labor as nginx.
-- `proxmox_virtual_environment_file.backup_network_config` — cloud-init v2
-  network-config, same NIC name-glob (`e*`) pattern as nginx.tf; static or
-  DHCP per `backup_static_ip`.
-- `proxmox_virtual_environment_vm.backup` — VM ID 300 (`var.backup_vm_id`),
-  Q35, virtio disk on `local-lvm` sized by `backup_disk_gb` (this disk **is**
-  the backup store — size against homelab1's free space), agent enabled (8m
-  timeout). **`tags = ["ansible", "backup"]`** drive the Ansible dynamic
-  inventory grouping (`tag_backup`).
+- `proxmox_download_file.ubuntu_noble_lxc_template_homelab1` — homelab1 needs
+  its own copy of the LXC template because the `local` datastore is per-node;
+  the one in nginx.tf only exists on homelab2.
+- `proxmox_virtual_environment_container.backup` — CT 300
+  (`var.backup_vm_id`), unprivileged, `nesting=1`, 512 MB + 512 MB swap,
+  rootfs on `local-lvm` sized by `backup_disk_gb` (the rootfs **is** the backup
+  store — size against homelab1's free space). Same shape as the nginx LXCs;
+  the `backup` role installs everything. **`tags = ["ansible", "backup"]`**
+  drive the Ansible dynamic inventory grouping (`tag_backup`).
+- `proxmox_download_file.ubuntu_noble_cloud_image_homelab1` now lives in
+  immich.tf, its only user.
+
+#### Moving the backup VM to an LXC (one-time, 2026-10)
+VM 300 was a 2 GB VM; the container reuses its ID and address, and Terraform
+must not destroy the VM because its disk holds every backup. The old VM's
+state entries are also bound to the removed `proxmox.homelab1` provider alias,
+so Terraform could not destroy them anyway. Run from the main checkout:
+1. Copy the backups off the VM to the laptop:
+   `ssh ubuntu@10.10.10.30 'sudo tar -C /var/backups -cf - homelab' > backup-homelab.tar`
+2. `terraform state rm proxmox_virtual_environment_vm.backup proxmox_virtual_environment_file.backup_cloud_init proxmox_virtual_environment_file.backup_network_config`
+3. On homelab1: `qm stop 300 && qm destroy 300 --purge`, and delete the
+   orphaned `backup-cloud-init.yaml` / `backup-network-config.yaml` from
+   `/var/lib/vz/snippets/`.
+4. `terraform apply` (creates the homelab1 template and CT 300).
+5. Remove the VM's old host key (`ssh-keygen -R 10.10.10.30`), then
+   `ansible-playbook site.yml --limit tag_backup`.
+6. Restore the backups:
+   `ssh root@10.10.10.30 'tar -C /var/backups -xpf -' < backup-homelab.tar`
+7. Confirm both jobs with
+   `ssh root@10.10.10.30 systemctl start backup-postgres backup-homeassistant`.
 
 ### router VM (router.tf)
 - `proxmox_virtual_environment_file.router_cloud_init` — ubuntu user +
@@ -97,8 +112,8 @@ through the cluster API.
 | `nginx_static_ip` / `_gateway` / `_nameserver` | `10.10.10.10/24` / `10.10.10.1` / `8.8.8.8` | lab address; `""` = DHCP |
 | `proxmox_homelab1_node` | `homelab1` | node name of the second cluster member |
 | `proxmox_homelab1_ssh_host` | `192.168.68.75` | SSH target for homelab1 root |
-| `backup_vm_id` | `300` | Proxmox VM ID |
-| `backup_cpu_cores` / `backup_memory_mb` / `backup_disk_gb` | `2` / `2048` / `100` | sizing; disk is the backup store itself |
+| `backup_vm_id` | `300` | Proxmox CT ID |
+| `backup_cpu_cores` / `backup_memory_mb` / `backup_disk_gb` | `1` / `512` / `100` | LXC sizing (swap = memory); rootfs is the backup store itself |
 | `backup_static_ip` / `_gateway` / `_nameserver` | `10.10.10.30/24` / `10.10.10.1` / `8.8.8.8` | lab address; `""` = DHCP |
 | `immich_vm_id` | `301` | Proxmox VM ID (homelab1) |
 | `immich_cpu_cores` / `immich_memory_mb` / `immich_disk_gb` / `immich_data_disk_gb` | `4` / `4096` / `32` / `200` | data disk holds every instance's photos + Postgres |
@@ -116,8 +131,8 @@ through the cluster API.
 
 A VM joins the lab subnet by pointing its existing `*_static_ip` / `*_gateway`
 at the lab range — no new Terraform resources. The defaults are the allocation
-table in `README.md`. The docker, nginx, nginx-internal and backup VMs carry
-`lifecycle { ignore_changes = [initialization] }`: a changed network snippet would
+table in `README.md`. The docker VM carries
+`lifecycle { ignore_changes = [initialization] }` (the LXCs also ignore `operating_system`): a changed network snippet would
 otherwise make the provider replace the VM (and its disk), so running VMs are
 re-addressed in-guest.
 
@@ -146,7 +161,7 @@ own `local` datastore.
 
 - HAOS uses `null_resource` + SSH (not the bpg VM resource): bpg v0.78+ dropped
   xz decompression and HAOS ships only `.qcow2.xz`.
-- docker, backup and immich VMs use the bpg VM resource with a custom cloud-init
+- docker and immich VMs use the bpg VM resource with a custom cloud-init
   network-config snippet (NIC name-glob match) instead of Proxmox's auto
   ipconfig.
 - The router VM carries both subnets on ONE vNIC because no host has a spare NIC
