@@ -13,6 +13,24 @@
   become: true
   serial: 1
   tasks:
+    # Upgrade cloudflared on its own, before the dist upgrade, so the change is
+    # visible here: a dist upgrade pulls the new package but nothing restarts
+    # the tunnel, leaving the old binary running until a reboot.
+    - name: Upgrade cloudflared to the latest release
+      ansible.builtin.apt:
+        name: cloudflared
+        state: latest
+        update_cache: true
+        cache_valid_time: 3600
+      register: cloudflared_upgrade
+      when: "'tag_cloudflared' in group_names"
+
+    - name: Restart cloudflared after an upgrade
+      ansible.builtin.systemd:
+        name: cloudflared
+        state: restarted
+      when: cloudflared_upgrade is changed
+
     - name: Upgrade all packages
       ansible.builtin.apt:
         upgrade: dist

@@ -13,11 +13,15 @@
     filename: cloudflared
     state: present
 
-- name: Install cloudflared
+# state: latest so every run picks up the newest release from Cloudflare's
+# repo. The unit runs with --no-autoupdate, so this is the only upgrade path;
+# the restart puts the new binary into service.
+- name: Install the latest cloudflared
   ansible.builtin.apt:
     name: cloudflared
-    state: present
+    state: latest
     update_cache: true
+  notify: Restart cloudflared
 
 - name: Create the cloudflared config directory
   ansible.builtin.file:
