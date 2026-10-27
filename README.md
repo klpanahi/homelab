@@ -1,6 +1,6 @@
 # Homelab
 
-Infrastructure-as-code for a two-node Proxmox homelab. See `agent.md` for full architecture decisions.
+Infrastructure-as-code for a two-node Proxmox cluster homelab. See `agent.md` for full architecture decisions and `docs/cluster.md` for how the cluster was formed and how to recover quorum.
 
 ---
 
@@ -8,7 +8,7 @@ Infrastructure-as-code for a two-node Proxmox homelab. See `agent.md` for full a
 
 ### 1. Proxmox VE
 
-- Proxmox VE installed bare-metal on each machine
+- Proxmox VE installed bare-metal on each machine, joined into one cluster (`docs/cluster.md`)
 - Nodes accessible on the local network (or via ZeroTier for remote work)
 
 ### 2. Terraform
@@ -20,7 +20,7 @@ terraform -version       # must be >= 1.6
 
 ### 3. Proxmox API Token
 
-Run the following on each Proxmox node (via SSH or the web UI Shell tab):
+Run the following once, on any cluster node (via SSH or the web UI Shell tab). Users and tokens are cluster-wide, so the one token works for both nodes:
 
 ```bash
 # Create a dedicated Terraform user

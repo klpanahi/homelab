@@ -10,7 +10,7 @@ Deco hands out to household devices, using only the hardware already here.
 | Switch is unmanaged | No VLAN tagging or trunking — VLAN segmentation is off the table |
 | Neither Proxmox host has a spare NIC | No dedicated lab interface, no direct host-to-host cable |
 | Both hosts hang off the same switch, which uplinks to the Deco | One flat broadcast domain shared with the whole house |
-| Hosts are standalone (not clustered) | Nothing can be solved at the cluster/SDN layer |
+| Hosts are a 2-node cluster with no shared storage or SDN setup | The lab subnet is not built on Proxmox SDN; it stays a plain router VM |
 
 So separation happens at **layer 3 only**: lab VMs stay on `vmbr0` and on the
 same wire as everything else, but carry `10.10.10.0/24` addresses and reach the
@@ -372,10 +372,9 @@ IoT devices that live there.
 
 ## Lab VMs on homelab1
 
-homelab1 is a standalone Proxmox host with its own Terraform provider alias
-(`proxmox.homelab1`, introduced by `terraform/backup.tf`). A lab VM there is an
-ordinary Terraform VM that binds **every** resource to that alias — one that forgets
-silently lands on homelab2 — with lab values for its `*_static_ip` / `*_gateway`.
+homelab1 is the second node of the Proxmox cluster (see [`cluster.md`](cluster.md)).
+A lab VM there is an ordinary Terraform VM whose resources set
+`node_name = var.proxmox_homelab1_node`, with lab values for its `*_static_ip` / `*_gateway`.
 It reaches the router over the physical switch, since both hosts' `vmbr0` bridges
 share the one flat segment. Follow `backup.tf` as the template.
 
