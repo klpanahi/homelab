@@ -28,7 +28,9 @@ router_dns_hosts:
   - { name: homelab1, ip: 192.168.68.75 }
   - { name: homelab2, ip: 192.168.68.65 }
   # Home Assistant (:8123). Stays on the LAN for mDNS/SSDP discovery of IoT devices.
-  - { name: homeassistant, ip: 192.168.68.60 }
+  # For service-to-service traffic (the backup job); people use the
+  # homeassistant alias below.
+  - { name: haos, ip: 192.168.68.60 }
   # The router: resolver, lab gateway, and front door for lab websites.
   - { name: router, ip: 192.168.68.100 }
 
@@ -49,3 +51,5 @@ router_dns_aliases:
   # Links page listing every homelab URL (homepage_links in
   # group_vars/tag_nginx_internal.yml).
   - { name: links, target: router }
+  # Home Assistant without :8123. nginx-internal proxies it to haos:8123.
+  - { name: homeassistant, target: router }

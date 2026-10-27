@@ -127,7 +127,7 @@ DNS. The two zones don't overlap, and clients query each one the right way on
 their own.
 
 Service-to-service traffic now uses `home.arpa`: the backup job reaches
-`docker.home.arpa` and `homeassistant.home.arpa`, and party-time's nginx
+`docker.home.arpa` and `haos.home.arpa`, and party-time's nginx
 upstreams (in the party-time repo) point at `docker.home.arpa`. Once nothing
 resolves a `.local` name, avahi can come out of the `tag_ansible` play in
 `site.yml`. That removes the failure class the `fix-homelab-mdns` skill exists
