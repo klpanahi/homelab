@@ -43,15 +43,30 @@ keyed_groups:
     separator: "_"
 
 compose:
-  # First non-loopback IPv4 the guest agent reports becomes the SSH target.
-  # proxmox_agent_interfaces entries look like:
+  # VMs: the first non-loopback IPv4 the QEMU guest agent reports becomes the
+  # SSH target. proxmox_agent_interfaces entries look like:
   #   {name: ens18, mac-address: ..., ip-addresses: ["192.168.68.101/24", "fe80::.../64"]}
   # so: drop the loopback iface, flatten the "ip/prefix" strings, drop IPv6
   # (contains ':') and 127.x, then strip the /prefix.
+  #
+  # LXCs have no guest agent, so without the else-branch they would silently
+  # drop out of every play. Their address is the static ip= in net0 (set by
+  # Terraform), which the plugin returns either as the raw config string or
+  # already parsed into a dict, depending on the collection version.
   ansible_host: >-
-    proxmox_agent_interfaces | default([])
-    | rejectattr('name', 'equalto', 'lo')
-    | map(attribute='ip-addresses') | flatten
-    | reject('search', ':')
-    | reject('search', '^127\.')
-    | map('regex_replace', '/.*$', '') | first
+    (proxmox_agent_interfaces
+     | rejectattr('name', 'equalto', 'lo')
+     | map(attribute='ip-addresses') | flatten
+     | reject('search', ':')
+     | reject('search', '^127\.')
+     | map('regex_replace', '/.*$', '') | first)
+    if proxmox_agent_interfaces is defined else
+    ((proxmox_net0.ip if proxmox_net0 is mapping else
+      (proxmox_net0 | regex_search('(?:^|,)ip=([^,]+)', '\\1') | first))
+     | regex_replace('/.*$', ''))
+
+  # The Ubuntu LXC template has no ubuntu user, and Proxmox installs the
+  # Terraform SSH key for root, so LXCs are reached as root. This is set here
+  # rather than in ansible/group_vars because group_vars next to site.yml are
+  # not loaded for playbooks elsewhere, such as party-time's deploy.
+  ansible_user: "'root' if proxmox_vmtype == 'lxc' else 'ubuntu'"

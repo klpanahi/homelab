@@ -12,13 +12,13 @@ Compose (planned).
 Laptop
   ├── Terraform ──SSH/API──► Proxmox Node homelab2 (192.168.68.65)
   ├── Terraform ──SSH/API──► Proxmox Node homelab1 (192.168.68.75)
-  └── Ansible  ──SSH(LAN)──► VMs (dynamic inventory via QEMU guest agent, both nodes)
+  └── Ansible  ──SSH(LAN)──► VMs (dynamic inventory: guest agent for VMs, net0 ip= for LXCs)
 
 Proxmox Node (homelab2, 192.168.68.65)
   ├── VM 200: homeassistant (HAOS appliance, null_resource + SSH)
-  ├── VM 201: nginx         (Ubuntu 24.04 cloud-image, bpg VM resource)
+  ├── CT 201: nginx-cloudflared (unprivileged Ubuntu 24.04 LXC, bpg container resource)
   ├── VM 202: docker        (Docker host — runs party-time-db etc.)
-  ├── VM 203: nginx-internal (Ubuntu 24.04 cloud-image, bpg VM resource)
+  ├── CT 203: nginx-internal (unprivileged Ubuntu 24.04 LXC, bpg container resource)
   ├── VM 204: router        (lab subnet gateway: 192.168.68.100 + 10.10.10.1)
   └── VM: windows           (Windows VM — planned)
 

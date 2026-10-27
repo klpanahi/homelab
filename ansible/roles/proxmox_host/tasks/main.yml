@@ -55,3 +55,17 @@
     owner: root
     group: root
     mode: "0644"
+
+# cloudflared's QUIC transport wants ~7 MB UDP socket buffers. The cap is a
+# host-kernel setting that an unprivileged LXC (nginx-cloudflared) can't raise
+# itself, so it is set here. Without it the tunnel still works, but logs a
+# buffer warning and gets less throughput.
+- name: Raise the UDP socket buffer cap for cloudflared in LXCs
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: "{{ proxmox_host_udp_buffer_max }}"
+    sysctl_file: /etc/sysctl.d/90-homelab-udp-buffers.conf
+    reload: true
+  loop:
+    - net.core.rmem_max
+    - net.core.wmem_max

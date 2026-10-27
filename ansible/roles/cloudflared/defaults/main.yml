@@ -1,0 +1,3 @@
+# Tunnel token from Cloudflare dashboard (Tunnels → your tunnel → Configure → Token).
+# Set vault_cloudflare_tunnel_token in group_vars/all/vault.yml.
+cloudflare_tunnel_token: "{{ vault_cloudflare_tunnel_token }}"

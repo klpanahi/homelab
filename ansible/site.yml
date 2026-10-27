@@ -32,6 +32,18 @@
         state: present
         update_cache: true
 
+    # avahi caps its user at 3 processes (rlimit-nproc). Unprivileged LXCs
+    # all map their uids into the same host range, so the avahi user in every
+    # LXC on a host shares that one count and the second avahi-daemon fails to
+    # start. VMs have their own kernel and keep the default.
+    - name: Drop avahi's process limit inside LXC guests
+      ansible.builtin.lineinfile:
+        path: /etc/avahi/avahi-daemon.conf
+        regexp: '^#?\s*rlimit-nproc\s*='
+        line: "#rlimit-nproc=3"
+      when: ansible_facts['virtualization_type'] == 'lxc'
+      notify: Restart avahi-daemon
+
     - name: Enable and start avahi-daemon
       ansible.builtin.systemd:
         name: avahi-daemon
@@ -60,11 +72,61 @@
         mode: "0644"
       register: lab_dns_dropin
 
+    # LXC guests need two more pieces to match the VMs. Proxmox writes a plain
+    # /etc/resolv.conf (the Terraform nameserver) into the container, which
+    # bypasses systemd-resolved and so the home.arpa route above; the
+    # .pve-ignore marker stops Proxmox rewriting it at boot. And the
+    # networkd file Proxmox generates carries no DNS server, so the drop-in
+    # gives eth0 the container's nameserver for everything outside home.arpa,
+    # like the netplan config on the VMs.
+    - name: Configure systemd-resolved in LXC guests
+      when: ansible_facts['virtualization_type'] == 'lxc'
+      block:
+        - name: Stop Proxmox managing /etc/resolv.conf
+          ansible.builtin.copy:
+            dest: /etc/.pve-ignore.resolv.conf
+            content: ""
+            mode: "0644"
+
+        - name: Point /etc/resolv.conf at the systemd-resolved stub
+          ansible.builtin.file:
+            path: /etc/resolv.conf
+            src: /run/systemd/resolve/stub-resolv.conf
+            state: link
+            force: true
+
+        - name: Create the eth0 networkd drop-in directory
+          ansible.builtin.file:
+            path: /etc/systemd/network/eth0.network.d
+            state: directory
+            mode: "0755"
+
+        - name: Give eth0 the container's nameserver
+          ansible.builtin.copy:
+            dest: /etc/systemd/network/eth0.network.d/dns.conf
+            content: |
+              # Managed by homelab ansible/site.yml.
+              [Network]
+              DNS={{ proxmox_nameserver }}
+            mode: "0644"
+          register: lxc_dns_dropin
+
+        - name: Reload networkd to apply the eth0 nameserver
+          ansible.builtin.command: networkctl reload
+          when: lxc_dns_dropin.changed
+          changed_when: true
+
     - name: Restart systemd-resolved to pick up the home.arpa route
       ansible.builtin.systemd:
         name: systemd-resolved
         state: restarted
-      when: lab_dns_dropin.changed
+      when: lab_dns_dropin.changed or (lxc_dns_dropin.changed | default(false))
+
+  handlers:
+    - name: Restart avahi-daemon
+      ansible.builtin.systemd:
+        name: avahi-daemon
+        state: restarted
 
 # Lab router/NAT gateway for the routed lab subnet (10.10.10.0/24) that lives on
 # the same physical wire as the LAN. Runs first so lab VMs have a working default

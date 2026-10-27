@@ -30,18 +30,20 @@ boots it. Destroy = `qm stop && qm destroy --purge`. Idempotent.
 ### `null_resource.homeassistant_network` (homelab2.tf:75)
 Sets HAOS static IP via the QEMU guest agent CLI; only when `haos_static_ip != ""`.
 
-### nginx VM (nginx.tf)
+### nginx-cloudflared and nginx-internal LXCs (nginx.tf, nginx-internal.tf)
 - `proxmox_download_file.ubuntu_noble_cloud_image` — Ubuntu 24.04 **standard**
   cloud image (not minimal — minimal's cloud-init misses the NoCloud datasource).
-- `proxmox_virtual_environment_file.nginx_cloud_init` — cloud-init user-data:
-  creates `ubuntu` user + installs `qemu-guest-agent` only. **nginx is NOT
-  installed here** — Ansible owns it.
-- `proxmox_virtual_environment_file.nginx_network_config` — cloud-init v2
-  network-config matching NIC by name glob (`e*`) to dodge the eth0-rename
-  failure on Ubuntu 24.04; static or DHCP per `nginx_static_ip`.
-- `proxmox_virtual_environment_vm.nginx` (nginx.tf:88) — VM ID 201, Q35,
-  virtio disk on `local-lvm`, agent enabled (8m timeout).
-  **`tags = ["ansible", "nginx"]`** drive the Ansible dynamic inventory grouping.
+  Lives in nginx.tf but is used by the docker VM; nginx itself no longer uses it.
+- `proxmox_download_file.ubuntu_noble_lxc_template` — Ubuntu 24.04 system
+  container template (`vztmpl`) for both LXCs.
+- `proxmox_virtual_environment_container.nginx` — CT 201, unprivileged,
+  `nesting=1`, 256 MB + 256 MB swap, 8 GB rootfs on `local-lvm`. Static IP,
+  gateway and nameserver go in `initialization`, and the SSH key is installed
+  for root. **`tags = ["ansible", "nginx", "cloudflared"]`** drive the Ansible
+  dynamic inventory grouping. nginx and cloudflared are installed by Ansible.
+- `proxmox_virtual_environment_container.nginx_internal` — CT 203, same shape.
+- Both ignore changes to `initialization` and `operating_system`, which would
+  otherwise replace (wipe) the container.
 
 ### backup VM (backup.tf)
 Provisioned on **homelab1** — a physically separate cluster node from every
@@ -90,7 +92,7 @@ through the cluster API.
 | `haos_static_ip` / `_gateway` / `_nameserver` / `_network_iface` | see file | HAOS net |
 | `haos_mac_address` | `BC:24:11:00:02:00` | pinned NIC MAC for DHCP reservation |
 | `nginx_vm_id` | `201` | Proxmox VM ID |
-| `nginx_cpu_cores` / `nginx_memory_mb` / `nginx_disk_gb` | `1` / `1024` / `20` | sizing |
+| `nginx_cpu_cores` / `nginx_memory_mb` / `nginx_disk_gb` | `1` / `256` / `8` | LXC sizing (swap = memory) |
 | `nginx_ssh_public_key` | — | injected into ubuntu user |
 | `nginx_static_ip` / `_gateway` / `_nameserver` | `10.10.10.10/24` / `10.10.10.1` / `8.8.8.8` | lab address; `""` = DHCP |
 | `proxmox_homelab1_node` | `homelab1` | node name of the second cluster member |
@@ -144,7 +146,7 @@ own `local` datastore.
 
 - HAOS uses `null_resource` + SSH (not the bpg VM resource): bpg v0.78+ dropped
   xz decompression and HAOS ships only `.qcow2.xz`.
-- nginx and backup VMs use the bpg VM resource with a custom cloud-init
+- docker, backup and immich VMs use the bpg VM resource with a custom cloud-init
   network-config snippet (NIC name-glob match) instead of Proxmox's auto
   ipconfig.
 - The router VM carries both subnets on ONE vNIC because no host has a spare NIC
