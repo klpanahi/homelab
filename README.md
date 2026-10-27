@@ -9,6 +9,7 @@ Infrastructure-as-code for a two-node Proxmox cluster homelab. See `agent.md` fo
 ### 1. Proxmox VE
 
 - Proxmox VE installed bare-metal on each machine, joined into one cluster (`docs/cluster.md`)
+- Both nodes on Proxmox VE 8.4, using the `pve-no-subscription` repo, and kept on matching versions (`docs/cluster.md#packages-and-upgrades`)
 - Nodes accessible on the local network (or via ZeroTier for remote work)
 
 ### 2. Terraform

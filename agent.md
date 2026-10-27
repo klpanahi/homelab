@@ -32,9 +32,9 @@ Designed for headless, always-on server use with a full REST API (usable with Te
 | Host | RAM | Disk | Runs |
 |---|---|---|---|
 | `homelab2` (`192.168.68.65`) | 8 GB | 500 GB | homeassistant, nginx, docker, nginx-internal, router |
-| `homelab1` (`192.168.68.75`) | 8 GB | 500 GB | backup |
+| `homelab1` (`192.168.68.75`) | 8 GB | 500 GB | backup, immich |
 
-- **RAM is the binding constraint, not disk.** homelab2's VMs already allocate ~9 GB (HAOS 4 GB, docker 2 GB, nginx / nginx-internal / router 1 GB each — see the `*_memory_mb` defaults in `terraform/variables.tf`), so it is overcommitted and has no room for new workloads. homelab1 has ~6 GB free after the 2 GB backup VM, so new memory-hungry services go there.
+- **RAM is the binding constraint, not disk.** homelab2's VMs already allocate ~9 GB (HAOS 4 GB, docker 2 GB, nginx / nginx-internal / router 1 GB each — see the `*_memory_mb` defaults in `terraform/variables.tf`), so it is overcommitted and has no room for new workloads. homelab1 now runs the 2 GB backup VM and the 4 GB immich VM (301), so it has only ~2 GB left. Neither host has room for another memory-hungry service without a RAM upgrade.
 - One NIC per host and an unmanaged switch — no VLANs (see "Why the Lab Subnet is Routed" below).
 - The TP-Link Deco is the LAN router and DHCP server, and also runs the **WireGuard VPN server** used for remote access to LAN-only services. That is separate from ZeroTier, which carries SSH/Ansible/Terraform admin traffic.
 
