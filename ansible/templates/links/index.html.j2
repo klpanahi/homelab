@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- Managed by homelab ansible (site.yml). Edit homepage_links in
+     ansible/group_vars/tag_nginx_internal.yml, not this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homelab Links</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1d2129;
+    --muted: #5f6673;
+    --border: #e1e4e8;
+    --accent: #2f6fdb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --card: #1d2026;
+      --text: #e6e8eb;
+      --muted: #9aa1ac;
+      --border: #2c3038;
+      --accent: #6ea0ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 16px;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 24px; }
+  h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 28px 0 10px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+  a.card {
+    display: block;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: inherit;
+    text-decoration: none;
+  }
+  a.card:hover, a.card:focus-visible { border-color: var(--accent); }
+  .name { font-weight: 600; }
+  .note { color: var(--muted); font-size: 13px; }
+  .url { color: var(--accent); font-size: 13px; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Homelab</h1>
+{% for group in homepage_links %}
+  <section>
+    <h2>{{ group.name | e }}</h2>
+    <div class="grid">
+{% for link in group.links %}
+      <a class="card" href="{{ link.url | e }}">
+        <div class="name">{{ link.name | e }}</div>
+{% if link.note | default('') %}
+        <div class="note">{{ link.note | e }}</div>
+{% endif %}
+        <div class="url">{{ link.url | e }}</div>
+      </a>
+{% endfor %}
+    </div>
+  </section>
+{% endfor %}
+</main>
+</body>
+</html>

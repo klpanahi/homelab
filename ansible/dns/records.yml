@@ -46,3 +46,6 @@ router_dns_aliases:
   - { name: partytime, target: router }
   # Personal Immich (docs/immich.md). LAN and WireGuard only.
   - { name: photos, target: router }
+  # Links page listing every homelab URL (homepage_links in
+  # group_vars/tag_nginx_internal.yml).
+  - { name: links, target: router }

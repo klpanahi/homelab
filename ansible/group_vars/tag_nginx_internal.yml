@@ -38,3 +38,29 @@ nginx_vhosts:
           proxy_set_header Connection "upgrade";
           proxy_redirect off;
       }
+
+  # Links page (ansible/templates/links/index.html.j2), rendered from
+  # homepage_links below by site.yml. LAN and WireGuard only.
+  - listen: "80"
+    server_name: "links.home.arpa"
+    filename: "links.conf"
+    root: "/var/www/links"
+    index: "index.html"
+
+# Everything the homelab serves, shown at http://links.home.arpa. When you add a
+# website (docs/internal-dns.md), add it here too.
+homepage_links:
+  - name: Proxmox
+    links:
+      - { name: homelab1, url: "https://homelab1.home.arpa:8006", note: "Proxmox node (self-signed cert)" }
+      - { name: homelab2, url: "https://homelab2.home.arpa:8006", note: "Proxmox node (self-signed cert)" }
+  - name: Home
+    links:
+      - { name: Home Assistant, url: "http://homeassistant.home.arpa:8123", note: "Smart home" }
+      - { name: Photos, url: "http://photos.home.arpa", note: "Personal Immich" }
+      - { name: Party Time admin, url: "http://partytime.home.arpa", note: "Event admin UI" }
+  - name: Public (Cloudflare tunnel)
+    links:
+      - { name: Party Time, url: "https://party-time.panahi-systems.com", note: "Invitee site" }
+      - { name: Austin's Photos, url: "https://austins-photos.panahi-systems.com", note: "Austin's Immich" }
+      - { name: Shared Photos, url: "https://immich-shared.panahi-systems.com", note: "Immich share links" }
