@@ -6,7 +6,7 @@
 
 ```
 terraform/
-  main.tf                  provider config (proxmox default alias + proxmox.homelab1 alias + null)
+  main.tf                  provider config (one proxmox provider for the cluster + null)
   homelab2.tf              HAOS VM provisioning (null_resource, SSH remote-exec)
   nginx.tf                 nginx VM (bpg VM resource + cloud-init snippets)
   nginx-internal.tf        LAN-only nginx VM
@@ -44,15 +44,14 @@ Sets HAOS static IP via the QEMU guest agent CLI; only when `haos_static_ip != "
   **`tags = ["ansible", "nginx"]`** drive the Ansible dynamic inventory grouping.
 
 ### backup VM (backup.tf)
-Provisioned on **homelab1** — a separate, standalone Proxmox host from every
-other VM in this repo (see Provider Config below), so a homelab2 failure
-can't take the backups out along with the things they back up. Every resource
-here carries `provider = proxmox.homelab1`; a resource that forgets it
-silently targets homelab2 instead.
+Provisioned on **homelab1** — a physically separate cluster node from every
+other VM in this repo, so a homelab2 failure can't take the backups out along
+with the things they back up. Every resource here sets
+`node_name = var.proxmox_homelab1_node`; the default provider reaches it
+through the cluster API.
 - `proxmox_download_file.ubuntu_noble_cloud_image_homelab1` — homelab1 needs
-  its own copy of the Ubuntu 24.04 cloud image; the one in nginx.tf is bound
-  to the default (homelab2) provider and can't be reused across the alias
-  boundary.
+  its own copy of the Ubuntu 24.04 cloud image because the `local` datastore
+  is per-node; the one in nginx.tf only exists on homelab2.
 - `proxmox_virtual_environment_file.backup_cloud_init` — cloud-init user-data:
   creates `ubuntu` user + installs `qemu-guest-agent` only. **The backup
   software itself is NOT installed here** — Ansible's `backup` role owns it,
@@ -94,9 +93,7 @@ silently targets homelab2 instead.
 | `nginx_cpu_cores` / `nginx_memory_mb` / `nginx_disk_gb` | `1` / `1024` / `20` | sizing |
 | `nginx_ssh_public_key` | — | injected into ubuntu user |
 | `nginx_static_ip` / `_gateway` / `_nameserver` | `10.10.10.10/24` / `10.10.10.1` / `8.8.8.8` | lab address; `""` = DHCP |
-| `proxmox_homelab1_endpoint` | `https://192.168.68.75:8006` | API URL for standalone homelab1 host |
-| `proxmox_homelab1_api_token` | — | sensitive; homelab1's OWN token — homelab1 and homelab2 are not clustered and don't share a user/token database |
-| `proxmox_homelab1_node` | — | node name as reported by homelab1's own `/api2/json/nodes`; not knowable in advance, must be queried |
+| `proxmox_homelab1_node` | `homelab1` | node name of the second cluster member |
 | `proxmox_homelab1_ssh_host` | `192.168.68.75` | SSH target for homelab1 root |
 | `backup_vm_id` | `300` | Proxmox VM ID |
 | `backup_cpu_cores` / `backup_memory_mb` / `backup_disk_gb` | `2` / `2048` / `100` | sizing; disk is the backup store itself |
@@ -133,26 +130,15 @@ provider "proxmox" {
     username    = "root"
     private_key = file(pathexpand(var.proxmox_ssh_private_key_path))
     node { name = var.proxmox_node; address = var.proxmox_ssh_host }
-  }
-}
-
-# homelab1 is a SEPARATE, standalone Proxmox install — not a cluster member
-# with homelab2. Its /api2/json/nodes lists only itself, and homelab2's API
-# token gets a 401 there, so it gets its own endpoint, token, and provider
-# alias. Resources targeting it MUST set provider = proxmox.homelab1 —
-# anything that forgets that argument silently lands on homelab2 instead.
-provider "proxmox" {
-  alias     = "homelab1"
-  endpoint  = var.proxmox_homelab1_endpoint
-  api_token = var.proxmox_homelab1_api_token
-  insecure  = true
-  ssh {
-    username    = "root"
-    private_key = file(pathexpand(var.proxmox_ssh_private_key_path))
     node { name = var.proxmox_homelab1_node; address = var.proxmox_homelab1_ssh_host }
   }
 }
 ```
+
+homelab1 and homelab2 are one Proxmox cluster (see [`../cluster.md`](../cluster.md)),
+so one endpoint and token manage both; a resource picks its host by `node_name`.
+The two SSH `node` blocks are only for snippet uploads, which go to each node's
+own `local` datastore.
 
 ## Workaround Notes
 
@@ -161,10 +147,6 @@ provider "proxmox" {
 - nginx and backup VMs use the bpg VM resource with a custom cloud-init
   network-config snippet (NIC name-glob match) instead of Proxmox's auto
   ipconfig.
-- homelab1 is standalone (not clustered with homelab2), discovered live by
-  querying its own `/api2/json/nodes` — hence a second provider alias, a
-  second SSH `node` block, and a second API token, all scoped to homelab1
-  only.
 - The router VM carries both subnets on ONE vNIC because no host has a spare NIC
   and the switch is unmanaged (no VLANs) — see [`../lab-subnet.md`](../lab-subnet.md).
 - cloud-init writes network config only on first boot: changing a `*_static_ip`

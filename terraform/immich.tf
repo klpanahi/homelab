@@ -1,7 +1,7 @@
 # The Immich VM runs on homelab1 because homelab2 has no RAM left (see the
-# Hardware section in agent.md). Like backup.tf, every resource here must carry
-# `provider = proxmox.homelab1` and use var.proxmox_homelab1_node; a resource
-# that forgets the provider argument silently targets homelab2 instead.
+# Hardware section in agent.md). Like backup.tf, every resource here picks that
+# cluster node with node_name = var.proxmox_homelab1_node; the default provider
+# reaches it through the cluster API (docs/cluster.md).
 #
 # Photos and Immich's databases live on a second disk (virtio1), so the root
 # disk can be rebuilt without touching the library. Ansible formats and mounts
@@ -11,8 +11,6 @@
 # Reuses proxmox_download_file.ubuntu_noble_cloud_image_homelab1 from backup.tf.
 
 resource "proxmox_virtual_environment_file" "immich_cloud_init" {
-  provider = proxmox.homelab1
-
   content_type = "snippets"
   datastore_id = "local"
   node_name    = var.proxmox_homelab1_node
@@ -39,8 +37,6 @@ resource "proxmox_virtual_environment_file" "immich_cloud_init" {
 }
 
 resource "proxmox_virtual_environment_file" "immich_network_config" {
-  provider = proxmox.homelab1
-
   content_type = "snippets"
   datastore_id = "local"
   node_name    = var.proxmox_homelab1_node
@@ -63,8 +59,6 @@ resource "proxmox_virtual_environment_file" "immich_network_config" {
 }
 
 resource "proxmox_virtual_environment_vm" "immich" {
-  provider = proxmox.homelab1
-
   name      = "immich"
   node_name = var.proxmox_homelab1_node
   vm_id     = var.immich_vm_id

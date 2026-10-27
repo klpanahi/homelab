@@ -1,0 +1,11 @@
+---
+# Baseline config for the Proxmox hypervisors. Overridden in
+# group_vars/proxmox_hosts.yml.
+
+# Physical NICs whose offloads are turned off at boot and whenever the NIC
+# (re)appears. Empty does nothing.
+proxmox_host_offload_off_nics: []
+
+# Passed to `ethtool -K <nic>`. Segmentation and checksum offloads are the ones
+# that trip the e1000e transmit hang.
+proxmox_host_offload_features: gso off gro off tso off tx off rx off

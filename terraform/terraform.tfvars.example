@@ -19,13 +19,10 @@ nginx_ssh_public_key = "ssh-ed25519 AAAA... you@host"
 # nginx_gateway    = "10.10.10.1"
 # nginx_nameserver = "8.8.8.8"
 
-# homelab1 — a SEPARATE, standalone Proxmox host (not clustered with homelab2)
-# that hosts the backup VM
-# proxmox_homelab1_endpoint  = "https://192.168.68.75:8006"   # default
-proxmox_homelab1_api_token = "terraform@pve!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-# Query https://192.168.68.75:8006/api2/json/nodes on homelab1 itself to find
-# this — it is NOT the same node name as homelab2 and is not yet known.
-proxmox_homelab1_node = "homelab1"
+# homelab1 — the second cluster member, hosts the backup VM. It shares
+# proxmox_endpoint and proxmox_api_token above; only the node name and SSH host
+# differ. See docs/cluster.md.
+# proxmox_homelab1_node     = "homelab1"        # default
 # proxmox_homelab1_ssh_host = "192.168.68.75"   # default
 
 # backup VM (on homelab1) — sizing defaults are usually fine, adjust

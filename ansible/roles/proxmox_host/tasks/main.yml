@@ -1,0 +1,29 @@
+---
+# Host-level config for the Proxmox hypervisors. VM lifecycle stays in
+# Terraform; this is only what has to live on the hosts themselves.
+
+- name: Install ethtool
+  ansible.builtin.apt:
+    name: ethtool
+    state: present
+
+- name: Install the NIC offload unit
+  ansible.builtin.template:
+    src: nic-offload@.service.j2
+    dest: /etc/systemd/system/nic-offload@.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reapply NIC offloads
+
+# Starting the unit applies the change immediately. ethtool -K can bounce the
+# link for a second, so expect a brief blip on the first run.
+- name: Enable and start the offload unit for each NIC
+  ansible.builtin.systemd:
+    name: "nic-offload@{{ item }}.service"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ proxmox_host_offload_off_nics }}"
+  # In --check the unit file above is never written, so systemd can't find it.
+  ignore_errors: "{{ ansible_check_mode }}"
