@@ -13,6 +13,8 @@ ansible/
                                   SSH defaults (remote_user=ubuntu)
   requirements.yml               community.proxmox collection + geerlingguy.nginx role
   inventory/proxmox.yml          community.proxmox.proxmox dynamic inventory (cluster API, both nodes)
+  files/pve-root-ca.pem          Proxmox cluster CA; inventory verifies the API cert via
+                                 REQUESTS_CA_BUNDLE from the repo-root .envrc
   group_vars/
     all/vars.yml           non-secret shared vars (incl. backup_ssh_public_key)
     all/vault.yml          GITIGNORED — vaulted secrets

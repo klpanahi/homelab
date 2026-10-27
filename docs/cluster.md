@@ -76,6 +76,64 @@ after a node reboot or a VM stop/start. Rebooting a node drops quorum on the
 other node (see above), and rebooting homelab2 takes down Home Assistant and
 the lab router.
 
+## TLS certificates
+
+Each node's API/web cert (`/etc/pve/nodes/<node>/pve-ssl.pem`) is signed by the
+cluster CA, `/etc/pve/pve-root-ca.pem`. The repo's trust anchor is
+`ansible/files/pve-root-ca.pem`, a public cert valid until 2036.
+
+That file is **not a byte-for-byte copy** of `/etc/pve/pve-root-ca.pem`. PVE
+generates its CA with a bare `openssl req -x509`, so the cert has no `keyUsage`
+extension, and Python 3.13+ rejects it in its default strict mode ("CA cert does
+not include key usage extension"). The committed cert was re-issued from the
+**same CA key and subject** with `keyUsage = keyCertSign, cRLSign` added. It has
+the same public key and subject key identifier, so the existing node certs
+verify against it unchanged, and Proxmox itself is untouched. It was made on
+homelab2, so the key never left the node:
+
+```bash
+ca=/etc/pve/pve-root-ca.pem
+subj=$(openssl x509 -in $ca -noout -subject -nameopt compat | sed 's/^subject=//')
+openssl req -new -x509 -key /etc/pve/priv/pve-root-ca.key -subj "$subj" -days 3650 -sha256 \
+  -addext "basicConstraints=critical,CA:TRUE" \
+  -addext "keyUsage=critical,keyCertSign,cRLSign" \
+  -addext "subjectKeyIdentifier=hash" -out /root/pve-root-ca-ku.pem
+openssl verify -x509_strict -CAfile /root/pve-root-ca-ku.pem /etc/pve/nodes/*/pve-ssl.pem
+```
+
+Ansible's Proxmox inventory verifies the API cert (`validate_certs: true`).
+The plugin has no CA-path option, so the repo's `.envrc` exports
+`REQUESTS_CA_BUNDLE`. It points at a generated bundle of the macOS system roots
+plus the cluster CA, so public HTTPS keeps working in the same shell. One-time
+setup:
+
+```bash
+brew install direnv
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc   # then open a new shell
+cd ~/Documents/Workspace/homelab && direnv allow
+```
+
+Without direnv, run the same exports by hand (`source .envrc` from the repo
+root) before running Ansible. If they're missing, inventory parsing fails with
+`CERTIFICATE_VERIFY_FAILED`.
+
+The certs' SANs come from `/etc/hosts` when they're generated. They originally
+carried pre-cluster addresses (`192.168.86.151` on homelab2), so on 2026-10-26
+both were regenerated with `pvecm updatecerts --force && systemctl restart
+pveproxy`. Re-run that on a node whenever its LAN IP or `/etc/hosts` entry
+changes. Check a node's SANs with:
+
+```bash
+echo | openssl s_client -connect 192.168.68.65:8006 2>/dev/null | openssl x509 -noout -ext subjectAltName
+```
+
+If the cluster CA key is ever regenerated, re-run the commands above and copy
+the new `/root/pve-root-ca-ku.pem` over `ansible/files/pve-root-ca.pem`.
+Regenerating only the node certs (`pvecm updatecerts`) doesn't affect it. Run the
+same commands again before the committed cert expires in October 2036.
+
+Terraform still uses `insecure = true`: the bpg provider has no CA option either.
+
 ## How it was formed (runbook)
 
 The cluster was formed on 2026-10-23..26 with these steps, run as root over
