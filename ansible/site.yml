@@ -192,6 +192,20 @@
   become: true
   roles:
     - geerlingguy.nginx
+  # The links page at links.home.arpa, rendered from homepage_links in
+  # group_vars/tag_nginx_internal.yml. Its vhost is in nginx_vhosts there.
+  tasks:
+    - name: Create the links page root
+      ansible.builtin.file:
+        path: /var/www/links
+        state: directory
+        mode: "0755"
+
+    - name: Render the links page
+      ansible.builtin.template:
+        src: templates/links/index.html.j2
+        dest: /var/www/links/index.html
+        mode: "0644"
 
 # Immich photo servers on homelab1 (docs/immich.md). One compose project per
 # instance in group_vars/tag_immich.yml, plus a shared ML container and a

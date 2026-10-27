@@ -53,6 +53,9 @@ website:
 1. Add an alias, `<service>` → `router`.
 2. Give nginx-internal a vhost with `server_name <service>.home.arpa` that proxies
    to the backend.
+3. Add it to `homepage_links` in `group_vars/tag_nginx_internal.yml`, so it shows
+   up on the links page at `http://links.home.arpa`. Apply with
+   `ansible-playbook site.yml --limit tag_nginx_internal`.
 
 This way the router's `.100` is the only Deco reservation the lab needs. Every
 lab VM is addressed in Terraform, so its record never goes stale. Home Assistant

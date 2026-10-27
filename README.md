@@ -115,6 +115,10 @@ The router VM also runs dnsmasq for the `home.arpa` zone. Add names in
 `192.168.68.100` so every device on the Wi-Fi resolves them. See
 [`docs/internal-dns.md`](docs/internal-dns.md).
 
+`http://links.home.arpa` lists every URL the homelab serves, Proxmox nodes
+included. Edit the list in `homepage_links`
+([`ansible/group_vars/tag_nginx_internal.yml`](ansible/group_vars/tag_nginx_internal.yml)).
+
 ---
 
 ## IP allocation
