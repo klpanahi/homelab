@@ -78,9 +78,9 @@ entirely. Name any additional source `<name>.proxmox.yml`.
 | `tag_router` | router | Proxmox tag `router` |
 | `tag_backup` | backup | Proxmox tag `backup` |
 | `tag_immich` | immich | Proxmox tag `immich` |
-| `proxmox_all_qemu` / `proxmox_all_lxc` / `_all_running` | VMs / LXCs (nginx-cloudflared, nginx-internal) | guest type/status |
+| `proxmox_all_qemu` / `proxmox_all_lxc` / `_all_running` | VMs / LXCs (nginx-cloudflared, nginx-internal, backup) | guest type/status |
 | `proxmox_homelab2_qemu` / `proxmox_homelab2_lxc` | homeassistant, docker, router / nginx-cloudflared, nginx-internal | per-node |
-| `proxmox_homelab1_qemu` | backup, immich (immich is not managed by this repo) | per-node |
+| `proxmox_homelab1_qemu` / `proxmox_homelab1_lxc` | immich / backup | per-node |
 | `proxmox_nodes` | homelab2, homelab1 | cluster nodes |
 
 ## Playbook
@@ -119,7 +119,7 @@ owned by that application's own repo and deploy playbook.
 
 ## Role: `backup` (roles/backup/)
 
-Runs on the `backup` VM (homelab1, VM 300) and **pulls** backups from two
+Runs on the `backup` LXC (homelab1, CT 300) and **pulls** backups from two
 homelab2 workloads — see [`architecture.md`](architecture.md#backup-strategy)
 for the design rationale (pull model, no offsite copy, no encryption).
 

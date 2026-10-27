@@ -17,10 +17,10 @@ Ansible inventory sources. Now there is one of each:
 |---|---|---|
 | Role | cluster founder | joined |
 | corosync link0 | `192.168.68.65` | `192.168.68.75` |
-| VMs | 200–204 | 300 (backup), 301 (immich, not in this repo) |
+| Guests | 200–204 | 300 (backup LXC), 301 (immich) |
 
 There's **no shared storage**: each node keeps its own `local` and `local-lvm`.
-Migrating a VM copies its disk over the LAN, and the backup VM should stay on
+Migrating a guest copies its disk over the LAN, and the backup LXC should stay on
 homelab1 (see `terraform/backup.tf`).
 
 ## Quorum: two nodes, no QDevice

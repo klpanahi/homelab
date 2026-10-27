@@ -237,46 +237,46 @@ variable "proxmox_homelab1_ssh_host" {
   default     = "192.168.68.75"
 }
 
-# ── backup VM (on homelab1) ──────────────────────────────────────────────────
+# ── backup LXC (on homelab1) ─────────────────────────────────────────────────
 
 variable "backup_vm_id" {
-  description = "Proxmox VM ID for the backup VM"
+  description = "Proxmox VM ID for the backup LXC"
   type        = number
   default     = 300
 }
 
 variable "backup_cpu_cores" {
-  description = "Number of vCPU cores for the backup VM"
+  description = "Number of vCPU cores for the backup LXC"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "backup_memory_mb" {
-  description = "RAM in MB for the backup VM"
+  description = "RAM in MB for the backup LXC (swap is set to the same size)"
   type        = number
-  default     = 2048
+  default     = 512
 }
 
 variable "backup_disk_gb" {
-  description = "Disk size in GB for the backup VM. This is the backup store itself, so size it against homelab1's free space."
+  description = "Rootfs size in GB for the backup LXC. This is the backup store itself, so size it against homelab1's free space."
   type        = number
   default     = 100
 }
 
 variable "backup_static_ip" {
-  description = "Static IP with CIDR for the backup VM. Defaults to its lab-subnet address from the allocation table in README.md. Set to \"\" for DHCP."
+  description = "Static IP with CIDR for the backup LXC. Defaults to its lab-subnet address from the allocation table in README.md. Set to \"\" for DHCP."
   type        = string
   default     = "10.10.10.30/24"
 }
 
 variable "backup_gateway" {
-  description = "Gateway for backup VM static IP (required when backup_static_ip is set). The router VM's lab address for a lab VM."
+  description = "Gateway for backup LXC static IP (required when backup_static_ip is set). The router VM's lab address for a lab VM."
   type        = string
   default     = "10.10.10.1"
 }
 
 variable "backup_nameserver" {
-  description = "DNS nameserver for the backup VM"
+  description = "DNS nameserver for the backup LXC"
   type        = string
   default     = "8.8.8.8"
 }
@@ -298,7 +298,7 @@ variable "immich_cpu_cores" {
 }
 
 variable "immich_memory_mb" {
-  description = "RAM in MB for the immich VM. homelab1 has 8 GB; the backup VM takes 2 GB."
+  description = "RAM in MB for the immich VM. homelab1 has 8 GB; the backup LXC takes 512 MB."
   type        = number
   default     = 4096
 }
