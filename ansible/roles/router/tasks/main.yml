@@ -61,10 +61,13 @@
       # Names must be unique across hosts and aliases.
       - _dns_names | length == _dns_names | unique | length
       # dnsmasq only follows a CNAME to a name it serves itself.
-      - router_dns_aliases | map(attribute='target') | difference(router_dns_hosts | map(attribute='name')) | length == 0
+      - (router_dns_aliases + router_dns_external_aliases) | map(attribute='target') | difference(router_dns_hosts | map(attribute='name')) | length == 0
+      # External names are full names outside the zone.
+      - router_dns_external_aliases | map(attribute='name') | select('search', '\\.' ~ router_dns_domain ~ '$') | list | length == 0
     fail_msg: >-
-      ansible/dns/records.yml: names must be unique, and every alias target must
-      be a name under router_dns_hosts.
+      ansible/dns/records.yml: names must be unique, every alias target must
+      be a name under router_dns_hosts, and external aliases must be full names
+      outside the zone.
   vars:
     _dns_names: "{{ (router_dns_hosts + router_dns_aliases) | map(attribute='name') | list }}"
   when: router_dns_enabled

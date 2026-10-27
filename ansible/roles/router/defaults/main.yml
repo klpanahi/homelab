@@ -36,6 +36,10 @@ router_ssh_allowed_subnets: "{{ [router_lan_subnet, router_lab_subnet] + router_
 
 router_dns_enabled: true
 
+# Full names in public domains that dnsmasq answers itself, as CNAMEs to a
+# record in the zone. Set in ansible/dns/records.yml.
+router_dns_external_aliases: []
+
 # Addresses dnsmasq answers on — the router's two addresses from terraform
 # (router_lan_ip / router_lab_ip in terraform/variables.tf), without prefixes.
 # Deliberately not 127.0.0.1: systemd-resolved owns the router's own lookups.

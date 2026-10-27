@@ -5,6 +5,11 @@
 
 nginx_remove_default_vhost: true
 
+# Let's Encrypt certificates (roles/letsencrypt, DNS-01 through Cloudflare),
+# issued before nginx_vhosts below reference them.
+letsencrypt_certificates:
+  - homeassistant.panahi-systems.com
+
 # party-time's vhost, upstream (admin_backend -> docker.home.arpa:8081), and
 # static root (/var/www/admin-ui) now live in the party-time repo
 # (deploy/nginx/admin.conf) and are applied by that repo's
@@ -39,6 +44,44 @@ nginx_vhosts:
           proxy_redirect off;
       }
 
+  # Home Assistant (VM 200, on the LAN at 192.168.68.60:8123) at
+  # https://homeassistant.panahi-systems.com. That name only resolves at home and
+  # on WireGuard (router_dns_external_aliases in ansible/dns/records.yml); the
+  # cert comes from Let's Encrypt over DNS-01 (letsencrypt_certificates below).
+  # Proxied by IP rather than haos.home.arpa: nginx resolves upstream names once
+  # at startup and refuses to start if one doesn't resolve. HA sees requests
+  # from the router's LAN address (it masquerades lab -> LAN traffic), so its
+  # configuration.yaml trusts 192.168.68.100 as a proxy. See docs/home-assistant.md.
+  - listen: "443 ssl"
+    server_name: "homeassistant.panahi-systems.com"
+    filename: "homeassistant.conf"
+    extra_parameters: |
+      ssl_certificate /etc/letsencrypt/live/homeassistant.panahi-systems.com/fullchain.pem;
+      ssl_certificate_key /etc/letsencrypt/live/homeassistant.panahi-systems.com/privkey.pem;
+      ssl_protocols TLSv1.2 TLSv1.3;
+      client_max_body_size 100M;
+
+      location / {
+          proxy_pass http://192.168.68.60:8123;
+          proxy_http_version 1.1;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          # The frontend runs over a WebSocket (/api/websocket).
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";
+          proxy_read_timeout 1h;
+          proxy_buffering off;
+      }
+
+  # Plain-HTTP names for Home Assistant send people to the HTTPS one.
+  - listen: "80"
+    server_name: "homeassistant.panahi-systems.com homeassistant.home.arpa"
+    filename: "homeassistant-redirect.conf"
+    extra_parameters: |
+      return 301 https://homeassistant.panahi-systems.com$request_uri;
+
   # Links page (ansible/templates/links/index.html.j2), rendered from
   # homepage_links below by site.yml. LAN and WireGuard only.
   - listen: "80"
@@ -56,7 +99,7 @@ homepage_links:
       - { name: homelab2, url: "https://homelab2.home.arpa:8006", note: "Proxmox node (self-signed cert)" }
   - name: Home
     links:
-      - { name: Home Assistant, url: "http://homeassistant.home.arpa:8123", note: "Smart home" }
+      - { name: Home Assistant, url: "https://homeassistant.panahi-systems.com", note: "Smart home (home and WireGuard only)" }
       - { name: Photos, url: "http://photos.home.arpa", note: "Personal Immich" }
       - { name: Party Time admin, url: "http://partytime.home.arpa", note: "Event admin UI" }
   - name: Public (Cloudflare tunnel)

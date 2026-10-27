@@ -40,3 +40,10 @@ host-record={{ host.name }}.{{ router_dns_domain }},{{ host.ip }}
 {% for alias in router_dns_aliases %}
 cname={{ alias.name }}.{{ router_dns_domain }},{{ alias.target }}.{{ router_dns_domain }}
 {% endfor %}
+{% if router_dns_external_aliases %}
+# Names in public domains answered locally (split horizon). Only these exact
+# names are overridden; the rest of each domain still goes upstream.
+{% for alias in router_dns_external_aliases %}
+cname={{ alias.name }},{{ alias.target }}.{{ router_dns_domain }}
+{% endfor %}
+{% endif %}
