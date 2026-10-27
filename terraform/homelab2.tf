@@ -68,10 +68,24 @@ resource "null_resource" "homeassistant" {
       "qm destroy 200 --purge 1 2>/dev/null || true"
     ]
   }
+
+  # Replacing this resource runs the destroy provisioner above, which wipes HA.
+  # Any trigger change causes a replacement, so:
+  # - static_ip is a leftover trigger nothing above uses. Ignore it so changing
+  #   haos_static_ip (or switching to DHCP) can't replace the VM.
+  # - prevent_destroy makes any planned replacement an error instead. HAOS
+  #   upgrades go through HA's own updater, not haos_version. To really rebuild
+  #   VM 200, take a backup and remove this line deliberately.
+  lifecycle {
+    ignore_changes  = [triggers["static_ip"]]
+    prevent_destroy = true
+  }
 }
 
-# Configures a static IP inside HAOS via the guest agent CLI.
-# Only runs when haos_static_ip is set; re-runs on IP/gateway/nameserver changes.
+# Optional: configures a static IP inside HAOS via the guest agent CLI. Unused
+# by default. HA runs on DHCP from the Deco reservation for haos_mac_address
+# (192.168.68.60), which also hands it the right /22 prefix and the router's
+# DNS. Only runs when haos_static_ip is set; re-runs on IP/gateway/nameserver changes.
 resource "null_resource" "homeassistant_network" {
   count = var.haos_static_ip != "" ? 1 : 0
 

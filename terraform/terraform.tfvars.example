@@ -3,11 +3,12 @@ proxmox_api_token = "terraform@pve!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx
 proxmox_node      = "homelab2"
 haos_version      = "17.3"   # check https://github.com/home-assistant/operating-system/releases
 
-# Static IP for Home Assistant — leave haos_static_ip empty to keep DHCP
-haos_static_ip     = "192.168.68.60/24"   # Deco address reservation on haos_mac_address
-haos_gateway       = "192.168.68.1"
-haos_nameserver    = "8.8.8.8"
-# haos_network_iface = "enp0s18"   # default; Q35 machine with virtio NIC
+# Home Assistant runs on DHCP: the Deco reservation on haos_mac_address gives it
+# 192.168.68.60/22 and the router's DNS. Set these only to pin a static IP inside HAOS.
+# haos_static_ip     = "192.168.68.60/22"   # the Deco LAN is a /22
+# haos_gateway       = "192.168.68.1"
+# haos_nameserver    = "192.168.68.100"     # default; the router VM's resolver
+# haos_network_iface = "enp6s18"            # default; Q35 machine with virtio NIC
 
 # nginx VM — run `cat ~/.ssh/id_ed25519.pub` to get your public key
 nginx_ssh_public_key = "ssh-ed25519 AAAA... you@host"
