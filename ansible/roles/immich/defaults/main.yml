@@ -1,0 +1,49 @@
+---
+# Immich release for every instance and the shared ML container. All instances
+# share one version, because they share one ML container. Upgrade by bumping
+# this after reading the release notes, then re-running the play.
+immich_version: v3.3.3
+
+# Pinned the same way as Immich's own docker-compose.yml for this release
+# (https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml).
+# Bump them together with immich_version when that file changes.
+immich_redis_image: docker.io/valkey/valkey:9@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d
+immich_postgres_image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+
+# Immich Public Proxy, for instances with public_share set.
+immich_public_proxy_image: docker.io/alangrainger/immich-public-proxy:3.4.1
+
+# Second disk from terraform/immich.tf (virtio1). Formatted once, never again:
+# the filesystem task only creates a filesystem on a blank device.
+immich_data_device: /dev/vdb
+immich_data_root: /srv/immich
+
+# Swap file on the root disk. Two Immich servers starting at once, plus the
+# ML container, briefly need more than the VM's 4 GB; without swap the kernel
+# thrashes page cache and OOM-kills a server, which restarts and does it again.
+# 0 = no swap file.
+immich_swap_size_mb: 4096
+immich_swap_file: /swapfile
+
+# Compose projects live here; data lives under immich_data_root.
+immich_compose_root: /opt/immich
+
+# Instances; see group_vars/tag_immich.yml.
+immich_instances: []
+
+# ── Backups ──────────────────────────────────────────────────────────────────
+immich_backup_rest_url: ""
+immich_backup_rest_user: immich
+immich_backup_rest_password: "{{ vault_restic_server_password }}"
+immich_backup_restic_password: "{{ vault_immich_restic_password }}"
+
+# Regenerable from the originals, so not worth backing up.
+immich_backup_excludes:
+  - thumbs
+  - encoded-video
+
+# Immich writes its database dump at 02:00; back up after it.
+immich_backup_oncalendar: "*-*-* 04:15:00"
+immich_backup_keep_daily: 30
+immich_backup_keep_monthly: 12
+immich_backup_root: /var/lib/immich-backup

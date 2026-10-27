@@ -33,3 +33,17 @@ vault_backup_ssh_private_key: |
   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   -----END OPENSSH PRIVATE KEY-----
+
+# ── Immich (docs/immich.md) ──────────────────────────────────────────────────
+# One Postgres password per instance in group_vars/tag_immich.yml. Letters and
+# digits only (Immich's rule). Generate with: openssl rand -hex 24
+vault_immich_db_passwords:
+  personal: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  austin: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Encrypts the Immich restic repository on homelab2. Losing it means
+# losing the backups: keep a copy outside this vault, e.g. in a password manager.
+vault_immich_restic_password: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Login the Immich VM uses on the restic server (docker VM, homelab2).
+vault_restic_server_password: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

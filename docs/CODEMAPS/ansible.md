@@ -21,6 +21,8 @@ ansible/
     tag_router.yml         lab router: lab/LAN subnets, NAT-to-LAN toggle
   roles/router/            REPO-OWNED role — IP forwarding + nftables ruleset
                             + dnsmasq internal DNS (home.arpa)
+  roles/immich/            REPO-OWNED role — Immich instances, shared ML, restic backup
+  roles/restic_server/     REPO-OWNED role — restic REST server on the docker VM
   dns/records.yml          internal DNS records (hosts + aliases) served by the
                             router's dnsmasq; loaded by the tag_router play
   site.yml                 top-level playbook
@@ -73,6 +75,7 @@ entirely. Name any additional source `<name>.proxmox.yml`.
 | `tag_nginx_internal` | nginx-internal | Proxmox tag `nginx_internal` |
 | `tag_router` | router | Proxmox tag `router` |
 | `tag_backup` | backup | Proxmox tag `backup` |
+| `tag_immich` | immich | Proxmox tag `immich` |
 | `proxmox_all_qemu` / `_all_running` | all VMs | VM type/status |
 | `proxmox_homelab2_qemu` | homeassistant, nginx, docker, nginx-internal, router | per-node |
 | `proxmox_homelab1_qemu` | backup, immich (immich is not managed by this repo) | per-node |
@@ -96,10 +99,11 @@ site.yml
         router_dns_aliases — see docs/internal-dns.md
   hosts: tag_nginx         → role geerlingguy.nginx (install/baseline only)
   hosts: tag_cloudflared   → role cloudflared
-  hosts: tag_docker        → role geerlingguy.docker, then installs
+  hosts: tag_docker        → roles geerlingguy.docker, restic_server, then installs
                              backup_ssh_public_key into ubuntu's authorized_keys
                              (skipped while that var is blank)
   hosts: tag_nginx_internal → role geerlingguy.nginx (install/baseline only)
+  hosts: tag_immich        → roles geerlingguy.docker, immich (docs/immich.md)
   hosts: tag_backup        → role backup
       ← group_vars/tag_nginx.yml: nginx_vhosts (port 80, root /var/www/html),
         nginx_remove_default_vhost: true

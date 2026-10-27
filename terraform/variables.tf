@@ -153,6 +153,12 @@ variable "docker_ssh_public_key" {
   type        = string
 }
 
+variable "docker_restic_disk_gb" {
+  description = "Size in GB of a second disk on the docker VM holding the restic backup repositories for Immich (mounted at /srv/restic). 0 = no disk."
+  type        = number
+  default     = 100
+}
+
 variable "docker_static_ip" {
   description = "Static IP with CIDR for the docker VM. Defaults to its lab-subnet address from the allocation table in README.md. Set to \"\" for DHCP."
   type        = string
@@ -273,6 +279,58 @@ variable "backup_nameserver" {
   description = "DNS nameserver for the backup VM"
   type        = string
   default     = "8.8.8.8"
+}
+
+# ── immich VM (homelab1) ──────────────────────────────────────────────────────
+# Immich photo server for every instance (ansible/group_vars/tag_immich.yml).
+# Lives on homelab1 because homelab2 has no RAM left. See docs/immich.md.
+
+variable "immich_vm_id" {
+  description = "Proxmox VM ID for the immich VM"
+  type        = number
+  default     = 301
+}
+
+variable "immich_cpu_cores" {
+  description = "Number of vCPU cores for the immich VM"
+  type        = number
+  default     = 4
+}
+
+variable "immich_memory_mb" {
+  description = "RAM in MB for the immich VM. homelab1 has 8 GB; the backup VM takes 2 GB."
+  type        = number
+  default     = 4096
+}
+
+variable "immich_disk_gb" {
+  description = "Root disk size in GB for the immich VM (OS, Docker images, ML model cache)"
+  type        = number
+  default     = 32
+}
+
+variable "immich_data_disk_gb" {
+  description = "Data disk size in GB for the immich VM: photo libraries and Postgres data for every instance, mounted at /srv/immich"
+  type        = number
+  default     = 200
+}
+
+variable "immich_static_ip" {
+  description = "Static IP with CIDR for the immich VM, from the allocation table in README.md"
+  type        = string
+  default     = "10.10.10.50/24"
+}
+
+variable "immich_gateway" {
+  description = "Gateway for the immich VM: the router VM's lab address"
+  type        = string
+  default     = "10.10.10.1"
+}
+
+variable "immich_nameserver" {
+  description = "DNS nameserver for the immich VM: the router's dnsmasq, so home.arpa names resolve"
+  type        = string
+  default     = "10.10.10.1"
 }
 
 # ── lab router / NAT gateway ──────────────────────────────────────────────────

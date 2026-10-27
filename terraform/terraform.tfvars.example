@@ -35,6 +35,19 @@ nginx_ssh_public_key = "ssh-ed25519 AAAA... you@host"
 # backup_gateway    = "10.10.10.1"
 # backup_nameserver = "8.8.8.8"
 
+# immich VM (on homelab1) — defaults match variables.tf. See docs/immich.md
+# immich_vm_id        = 301
+# immich_cpu_cores    = 4
+# immich_memory_mb    = 4096   # 4 GB; homelab1 has 8 GB and backup takes 2
+# immich_disk_gb      = 32
+# immich_data_disk_gb = 200    # photos + databases, mounted at /srv/immich
+# immich_static_ip    = "10.10.10.50/24"
+# immich_gateway      = "10.10.10.1"
+# immich_nameserver   = "10.10.10.1"
+
+# Second disk on the docker VM (homelab2) for Immich's restic backups. 0 = none.
+# docker_restic_disk_gb = 100
+
 # ── lab router / NAT gateway (VM 204) ─────────────────────────────────────────
 # Routes the lab subnet onto the LAN. Defaults below match variables.tf, so all
 # of these can be omitted. Design + runbook: docs/lab-subnet.md

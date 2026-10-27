@@ -10,6 +10,8 @@ collections:
   - name: community.docker
   # synchronize module (rsync wrapper) used by deploy/party-time.yml.
   - name: ansible.posix
+  # filesystem module, used to format the Immich and restic data disks.
+  - name: community.general
 
 roles:
   # Open-source nginx role — installs and configures nginx, manages vhosts.

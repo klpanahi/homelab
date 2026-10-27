@@ -56,6 +56,10 @@ ssh root@192.168.68.65      # verify it works before applying
 
 ## Getting Started
 
+Changes are applied from their feature branch and merged once they work, so
+`main` always matches what is running. Check out the branch before running the
+commands below; see "Change Workflow" in [`agent.md`](agent.md).
+
 ### 1. Provision VMs (Terraform)
 
 ```bash
@@ -130,7 +134,8 @@ predate it and keep their existing reservations.
 | `docker` | 202 | homelab2 | `10.10.10.20` | Static (`docker_static_ip`) |
 | `backup` | 300 | homelab1 | `10.10.10.30` | Static (`backup_static_ip`) |
 | `nginx-internal` | 203 | homelab2 | `10.10.10.40` | Static (`nginx_internal_static_ip`); LAN clients reach it through the router's port 80/443 forward on `.100` |
-| *(free)* | | | `10.10.10.41`–`.250` | Next VM: take the next free `.x0`, add a row here |
+| `immich` | 301 | homelab1 | `10.10.10.50` | Static (`immich_static_ip`); see [docs/immich.md](docs/immich.md) |
+| *(free)* | | | `10.10.10.51`–`.250` | Next VM: take the next free `.x0`, add a row here |
 | `homeassistant` | 200 | homelab2 | `192.168.68.60` | LAN, Deco reservation (MAC `BC:24:11:00:02:00`) — needs mDNS/SSDP on the LAN |
 | `homelab2` | — | — | `192.168.68.65` | LAN, Deco reservation |
 | `homelab1` | — | — | `192.168.68.75` | LAN, Deco reservation |

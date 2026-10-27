@@ -1,0 +1,143 @@
+---
+# Runs every Immich instance in immich_instances as its own compose project,
+# plus one machine-learning container they all share. Docker itself comes from
+# geerlingguy.docker, applied before this role in site.yml.
+
+- name: Check the instance list
+  ansible.builtin.assert:
+    that:
+      - immich_instances | length > 0
+      - _names | length == _names | unique | length
+      - _ports | length == _ports | unique | length
+      - immich_instances | map(attribute='db_password') | select('match', '^[A-Za-z0-9]+$') | list | length == immich_instances | length
+    fail_msg: >-
+      immich_instances: names and ports (including public_share ports) must be
+      unique, and every db_password must be letters and digits only.
+  vars:
+    _names: "{{ immich_instances | map(attribute='name') | list }}"
+    _ports: >-
+      {{ immich_instances | map(attribute='port') | list
+         + immich_instances | selectattr('public_share', 'defined') | map(attribute='public_share.port') | list }}
+
+# ── Swap ─────────────────────────────────────────────────────────────────────
+
+- name: Create the swap file
+  ansible.builtin.command:
+    cmd: "fallocate -l {{ immich_swap_size_mb }}M {{ immich_swap_file }}"
+    creates: "{{ immich_swap_file }}"
+  when: immich_swap_size_mb | int > 0
+  register: immich_swap_created
+
+- name: Restrict the swap file to root
+  ansible.builtin.file:
+    path: "{{ immich_swap_file }}"
+    mode: "0600"
+  when: immich_swap_size_mb | int > 0
+
+- name: Format the swap file
+  ansible.builtin.command:
+    cmd: "mkswap {{ immich_swap_file }}"
+  when: immich_swap_created is changed
+  changed_when: true
+
+- name: Add the swap file to fstab
+  ansible.posix.mount:
+    path: none
+    src: "{{ immich_swap_file }}"
+    fstype: swap
+    opts: sw
+    state: present
+  when: immich_swap_size_mb | int > 0
+
+- name: List active swap
+  ansible.builtin.command:
+    cmd: swapon --show=NAME --noheadings
+  register: immich_swap_active
+  changed_when: false
+
+- name: Turn the swap file on
+  ansible.builtin.command:
+    cmd: "swapon {{ immich_swap_file }}"
+  when:
+    - immich_swap_size_mb | int > 0
+    - immich_swap_file not in immich_swap_active.stdout_lines
+  changed_when: true
+
+# ── Data disk ────────────────────────────────────────────────────────────────
+
+# Only creates a filesystem on a blank device; an existing one is left alone.
+- name: Create a filesystem on the data disk
+  community.general.filesystem:
+    dev: "{{ immich_data_device }}"
+    fstype: ext4
+
+- name: Mount the data disk
+  ansible.posix.mount:
+    path: "{{ immich_data_root }}"
+    src: "{{ immich_data_device }}"
+    fstype: ext4
+    opts: defaults,noatime
+    state: mounted
+
+# ── Shared machine learning ──────────────────────────────────────────────────
+
+- name: Create the ML compose directory
+  ansible.builtin.file:
+    path: "{{ immich_compose_root }}/ml"
+    state: directory
+    mode: "0755"
+
+- name: Write the ML compose file
+  ansible.builtin.template:
+    src: ml-compose.yml.j2
+    dest: "{{ immich_compose_root }}/ml/compose.yml"
+    mode: "0644"
+
+# Starts first: it owns the immich-ml network the instances join.
+- name: Start the ML container
+  community.docker.docker_compose_v2:
+    project_src: "{{ immich_compose_root }}/ml"
+    state: present
+    pull: missing
+
+# ── Instances ────────────────────────────────────────────────────────────────
+
+- name: Create instance directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+  loop: >-
+    {{ immich_instances | map(attribute='name') | map('regex_replace', '^', immich_compose_root ~ '/') | list
+       + immich_instances | map(attribute='name') | map('regex_replace', '^', immich_data_root ~ '/') | list }}
+
+- name: Write instance .env files
+  ansible.builtin.template:
+    src: instance.env.j2
+    dest: "{{ immich_compose_root }}/{{ item.name }}/.env"
+    mode: "0600"
+  loop: "{{ immich_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Write instance compose files
+  ansible.builtin.template:
+    src: instance-compose.yml.j2
+    dest: "{{ immich_compose_root }}/{{ item.name }}/compose.yml"
+    mode: "0644"
+  loop: "{{ immich_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Start instances
+  community.docker.docker_compose_v2:
+    project_src: "{{ immich_compose_root }}/{{ item.name }}"
+    state: present
+    pull: missing
+  loop: "{{ immich_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Configure backups
+  ansible.builtin.import_tasks: backup.yml

@@ -12,6 +12,7 @@ terraform/
   nginx-internal.tf        LAN-only nginx VM
   docker.tf                Docker host VM
   backup.tf                backup VM on homelab1 (bpg VM resource + cloud-init snippets)
+  immich.tf                immich VM on homelab1 (root disk + 200 GB data disk)
   router.tf                lab subnet router/NAT VM (two IPs on one vNIC)
   variables.tf             all input variables
   terraform.tfvars         live values (gitignored)
@@ -97,6 +98,10 @@ through the cluster API.
 | `backup_vm_id` | `300` | Proxmox VM ID |
 | `backup_cpu_cores` / `backup_memory_mb` / `backup_disk_gb` | `2` / `2048` / `100` | sizing; disk is the backup store itself |
 | `backup_static_ip` / `_gateway` / `_nameserver` | `10.10.10.30/24` / `10.10.10.1` / `8.8.8.8` | lab address; `""` = DHCP |
+| `immich_vm_id` | `301` | Proxmox VM ID (homelab1) |
+| `immich_cpu_cores` / `immich_memory_mb` / `immich_disk_gb` / `immich_data_disk_gb` | `4` / `4096` / `32` / `200` | data disk holds every instance's photos + Postgres |
+| `immich_static_ip` / `_gateway` / `_nameserver` | `10.10.10.50/24` / `10.10.10.1` / `10.10.10.1` | lab address, router DNS |
+| `docker_restic_disk_gb` | `100` | second docker VM disk for Immich's restic repos; `0` = none |
 | `docker_static_ip` / `_gateway` | `10.10.10.20/24` / `10.10.10.1` | lab address |
 | `nginx_internal_static_ip` / `_gateway` | `10.10.10.40/24` / `10.10.10.1` | lab address |
 | `docker_*` / `nginx_internal_*` | see file | same sizing + static-IP pattern per VM |
