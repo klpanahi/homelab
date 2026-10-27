@@ -55,6 +55,17 @@ roles written in this repo — `roles/router/` is re-included in `.gitignore`.
    in `inventory/proxmox.yml` match your token's `user@realm` and token id
    (currently `root@pam` / `terraform`).
 
+4. **Trust the Proxmox cluster CA.** The inventory verifies the API's TLS cert
+   against `files/pve-root-ca.pem` (a strict-mode re-issue of the PVE CA), and finds it through `REQUESTS_CA_BUNDLE`,
+   which the repo-root `.envrc` sets. Set up direnv once:
+   ```bash
+   brew install direnv
+   echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc   # then open a new shell
+   cd .. && direnv allow
+   ```
+   Without it, inventory parsing fails with `CERTIFICATE_VERIFY_FAILED`. See
+   `docs/cluster.md`, "TLS certificates".
+
 ## Usage
 
 ```bash

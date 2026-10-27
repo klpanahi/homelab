@@ -18,13 +18,19 @@
 # A plain "{{ proxmox_token_secret }}" group var would be undefined here because
 # inventory plugins are evaluated BEFORE group_vars are loaded; the lookup reads
 # and decrypts the file directly instead.
+#
+# The API cert is verified against the cluster CA (ansible/files/pve-root-ca.pem).
+# The plugin has no CA-path option, so Python's requests library finds that CA
+# through REQUESTS_CA_BUNDLE, which the repo's .envrc sets (see docs/cluster.md,
+# "TLS certificates"). Without it, inventory parsing fails with
+# CERTIFICATE_VERIFY_FAILED.
 plugin: community.proxmox.proxmox
 
 url: https://192.168.68.65:8006
 user: root@pam
 token_id: terraform
 token_secret: "{{ (lookup('ansible.builtin.unvault', 'group_vars/all/vault.yml') | ansible.builtin.from_yaml).proxmox_token_secret }}"
-validate_certs: false
+validate_certs: true
 
 # want_facts pulls per-VM config + guest-agent data so proxmox_tags_parsed and
 # proxmox_agent_interfaces are available below.

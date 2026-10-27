@@ -48,3 +48,9 @@ id_ed25519*
 *.swp
 ansible/roles/cloudflared/
 ansible/roles/geerlingguy.*
+
+# direnv (generated CA bundle; see .envrc)
+.direnv/
+
+# Public Proxmox cluster CA cert (no private key) — the one .pem allowed in git.
+!ansible/files/pve-root-ca.pem
