@@ -190,6 +190,13 @@
 - name: Configure internal nginx hosts
   hosts: tag_nginx_internal
   become: true
+  # Certificates first: HTTPS vhosts in nginx_vhosts point at their files, and
+  # nginx won't start if one is missing. letsencrypt_certificates is in
+  # group_vars/tag_nginx_internal.yml.
+  pre_tasks:
+    - name: Issue Let's Encrypt certificates
+      ansible.builtin.include_role:
+        name: letsencrypt
   roles:
     - geerlingguy.nginx
   # The links page at links.home.arpa, rendered from homepage_links in

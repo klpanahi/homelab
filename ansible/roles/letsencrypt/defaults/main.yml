@@ -1,0 +1,17 @@
+---
+# Let's Encrypt certificates issued with the DNS-01 challenge through
+# Cloudflare's API, so the names never need to be reachable from the internet.
+# Used for LAN/WireGuard-only names in public domains (docs/home-assistant.md).
+
+# Cloudflare API token scoped to DNS Write + Zone Read on the zone(s) below.
+# Set vault_cloudflare_dns_token in group_vars/all/vault.yml.
+letsencrypt_cloudflare_token: "{{ vault_cloudflare_dns_token }}"
+
+# One certificate per entry, stored as /etc/letsencrypt/live/<name>/.
+letsencrypt_certificates: []
+
+# How long certbot waits for the TXT record to reach Cloudflare's nameservers.
+letsencrypt_propagation_seconds: 30
+
+# Run after each issue or renewal.
+letsencrypt_deploy_hook: "systemctl reload nginx"

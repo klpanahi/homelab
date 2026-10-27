@@ -9,6 +9,8 @@
 # Two kinds of record:
 #   router_dns_hosts    name -> IPv4 address (a PTR is created automatically)
 #   router_dns_aliases  name -> another name in router_dns_hosts (a CNAME)
+#   router_dns_external_aliases  full public name -> a name in router_dns_hosts,
+#                       answered only here (split horizon, see below)
 #
 # Lab VMs are addressed in git (terraform *_static_ip), so their records never
 # go stale and none of them needs a Deco reservation. Websites people open from
@@ -53,3 +55,11 @@ router_dns_aliases:
   - { name: links, target: router }
   # Home Assistant without :8123. nginx-internal proxies it to haos:8123.
   - { name: homeassistant, target: router }
+
+# Public-domain names that only exist at home and on WireGuard. dnsmasq answers
+# them itself; nothing is published in Cloudflare. They point at the router's
+# front door like the aliases above, and nginx-internal serves them over HTTPS
+# with a Let's Encrypt cert issued by DNS-01 (docs/home-assistant.md). Other
+# panahi-systems.com names (the Cloudflare tunnel sites) still resolve publicly.
+router_dns_external_aliases:
+  - { name: homeassistant.panahi-systems.com, target: router }

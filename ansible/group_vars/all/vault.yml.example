@@ -47,3 +47,8 @@ vault_immich_restic_password: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # Login the Immich VM uses on the restic server (docker VM, homelab2).
 vault_restic_server_password: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Cloudflare API token for certbot DNS-01 on nginx-internal (roles/letsencrypt).
+# Create it scoped to Zone -> DNS -> Edit and Zone -> Zone -> Read on
+# panahi-systems.com only.
+vault_cloudflare_dns_token: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

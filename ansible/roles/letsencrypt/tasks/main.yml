@@ -1,0 +1,48 @@
+---
+- name: Install certbot with the Cloudflare DNS plugin
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-dns-cloudflare
+    state: present
+    update_cache: true
+
+- name: Install the Cloudflare credentials
+  ansible.builtin.template:
+    src: cloudflare.ini.j2
+    dest: /etc/letsencrypt/cloudflare.ini
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+# Registers without an email address, so nothing about the owner goes to Let's
+# Encrypt (it no longer sends expiry mail anyway). certbot.timer renews.
+# --deploy-hook is saved in the renewal config, so renewals reload nginx too.
+- name: Issue certificates
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - certonly
+      - --non-interactive
+      - --agree-tos
+      - --register-unsafely-without-email
+      - --dns-cloudflare
+      - --dns-cloudflare-credentials
+      - /etc/letsencrypt/cloudflare.ini
+      - --dns-cloudflare-propagation-seconds
+      - "{{ letsencrypt_propagation_seconds }}"
+      - --cert-name
+      - "{{ item }}"
+      - --domain
+      - "{{ item }}"
+      - --deploy-hook
+      - "{{ letsencrypt_deploy_hook }}"
+    creates: "/etc/letsencrypt/live/{{ item }}/fullchain.pem"
+  loop: "{{ letsencrypt_certificates }}"
+
+- name: Enable automatic renewal
+  ansible.builtin.systemd:
+    name: certbot.timer
+    enabled: true
+    state: started

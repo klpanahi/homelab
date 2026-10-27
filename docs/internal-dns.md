@@ -61,6 +61,14 @@ This way the router's `.100` is the only Deco reservation the lab needs. Every
 lab VM is addressed in Terraform, so its record never goes stale. Home Assistant
 and the Proxmox nodes keep their existing reservations on the LAN.
 
+**Public names that only work at home.** To serve a name in a real domain with a
+trusted HTTPS certificate, without publishing it, add it to
+`router_dns_external_aliases` (full name → a host in the zone). dnsmasq answers
+only that exact name and forwards the rest of the domain upstream. The
+certificate comes from Let's Encrypt over DNS-01, so nothing has to be reachable
+from the internet. `homeassistant.panahi-systems.com` is the first one; see
+[home-assistant.md](home-assistant.md).
+
 **Order matters.** `records.yml` and the front door hold the post-cutover lab
 addresses. Re-run the router play as the last step of the window that moves the
 VMs onto the lab subnet, not before. Until then the router keeps serving the
