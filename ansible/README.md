@@ -98,8 +98,9 @@ ansible-playbook site.yml
   `10.10.10.0/24` is reachable from a Mac control machine **only with a local
   route** via `192.168.68.100`. The Deco's static route is not enough: it stalls
   sustained connections from macOS, so SSH sessions hang once output flows.
-- Connectivity is over the LAN IP the QEMU guest agent reports. ZeroTier-based
-  access can be layered on later as its own play/group.
+- Connectivity is over the LAN IP the QEMU guest agent reports. Away from home,
+  run Ansible over the Deco's WireGuard VPN; nothing in the inventory changes.
+  See [`../docs/remote-access.md`](../docs/remote-access.md).
 - The `community.proxmox.proxmox` plugin replaces the deprecated
   `community.general.proxmox`.
 - `group_vars/all/vault.yml` (gitignored) is the single source for the token

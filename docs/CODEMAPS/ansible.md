@@ -97,8 +97,8 @@ site.yml
                              ip_forward + send_redirects sysctls,
                              /etc/nftables.conf (validated with `nft --check`),
                              dnsmasq + /etc/dnsmasq.d/lab.conf (validated with
-                             `dnsmasq --test`; port 53 opened for LAN + lab)
-      ← group_vars/tag_router.yml: router_lab_subnet, router_lan_subnet,
+                             `dnsmasq --test`; port 53 opened for LAN, lab + VPN)
+      ← group_vars/tag_router.yml: router_lab_subnet, router_lan_subnet, router_vpn_subnets,
         router_masquerade_to_lan
       ← dns/records.yml (vars_files): router_dns_domain, router_dns_hosts,
         router_dns_aliases — see docs/internal-dns.md
@@ -195,7 +195,7 @@ ansible-playbook site.yml
 
 ## Notes
 
-- Connectivity over the IP the guest agent reports; ZeroTier can layer on later.
+- Connectivity over the IP the guest agent reports (over WireGuard when away).
   The router reports its LAN IP first, so it needs no route. A VM only on
   `10.10.10.0/24` needs a local route on a Mac control machine via
   `192.168.68.100` — the Deco's static route stalls sustained macOS connections —

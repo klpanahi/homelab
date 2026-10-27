@@ -27,9 +27,8 @@
 | Proxmox VE (homelab1, 192.168.68.75) | Second cluster node (backup VM); reached through homelab2's cluster API |
 | GitHub (home-assistant/operating-system) | HAOS image download source |
 | Ubuntu cloud-images | Base image for every Ubuntu VM (24.04 noble standard); downloaded once per node |
-| ZeroTier | Mesh VPN for laptop-to-VM access (planned on VMs) |
 | Cloudflare Tunnel | Public ingress, no open ports (planned) |
-| TP-Link Deco | Home router (`192.168.68.0/22`); MAC-based DHCP reservations; static route `10.10.10.0/24 → .100` (LAN). Configured by hand in the app — no API |
+| TP-Link Deco | Home router (`192.168.68.0/22`); MAC-based DHCP reservations; static route `10.10.10.0/24 → .100` (LAN); WireGuard VPN server (`10.5.5.0/24`, the only remote access). Configured by hand in the app — no API |
 
 ## Runtime Requirements
 

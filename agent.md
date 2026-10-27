@@ -36,7 +36,7 @@ Designed for headless, always-on server use with a full REST API (usable with Te
 
 - **RAM is the binding constraint, not disk.** homelab2's guests allocate ~7.5 GB (HAOS 4 GB, docker 2 GB, router 1 GB, and the nginx-cloudflared / nginx-internal LXCs 256 MB each — see the `*_memory_mb` defaults in `terraform/variables.tf`), so it is still close to full. Moving the two nginx guests from 1 GB VMs to LXCs on 2026-10-26 freed ~1.5 GB. homelab1 runs the 4 GB immich VM (301) and the backup LXC (300, 512 MB; a 2 GB VM until 2026-10-26), so it has ~3.5 GB left. Neither host has room for another memory-hungry service without a RAM upgrade.
 - One NIC per host and an unmanaged switch — no VLANs (see "Why the Lab Subnet is Routed" below).
-- The TP-Link Deco is the LAN router and DHCP server, and also runs the **WireGuard VPN server** used for remote access to LAN-only services. That is separate from ZeroTier, which carries SSH/Ansible/Terraform admin traffic.
+- The TP-Link Deco is the LAN router and DHCP server, and also runs the **WireGuard VPN server**, the only remote-access path (tunnel `10.5.5.0/24`). It carries web, SSH, Ansible and Terraform traffic alike. See `docs/remote-access.md`.
 
 ---
 
@@ -66,8 +66,8 @@ The QEMU guest agent must be installed (`apt install qemu-guest-agent && systemc
 
 - Proxmox hosts: static DHCP reservations in TP-Link Deco by MAC address
 - VMs needing stable IPs (e.g. Home Assistant): MAC-based reservation in Deco app
-- ZeroTier installed on all VMs + laptop — SSH and Ansible/Terraform traverse ZeroTier only
-- UFW default: deny inbound, allow outgoing, SSH allowed from ZeroTier subnet only
+- Remote access: WireGuard on the Deco only (`docs/remote-access.md`). At home, SSH and Ansible/Terraform go over the LAN; away, through the tunnel. There is no other mesh VPN or public admin path
+- The router VM's SSH and DNS allow-lists cover the LAN, the lab and the WireGuard tunnel subnet (`router_vpn_subnets`)
 - Public services: Cloudflare Tunnel (outbound-only, zero open inbound ports)
 - Lab VMs: addresses from `10.10.10.0/24`, routed and NAT'd by the router VM (see below). The Deco LAN is a **/22** (`192.168.68.1`–`192.168.71.254`), not a /24
 - Deco address reservations must be **inside** its DHCP pool (`192.168.68.50`–`192.168.71.250`) — there is no "static space below the pool" on this router. Stable addresses are in-pool and held by a MAC reservation: `homelab1` `.75`, `homelab2` `.65`, `homeassistant` `.60`, `router` `.100`. Every other VM (`docker`, `nginx-cloudflared`, `nginx-internal`, `backup`) lives on the lab subnet at a fixed address in git and needs no reservation — see the IP allocation table in `README.md`. The router's `.100` is the only reservation the lab ever needs
@@ -112,7 +112,7 @@ Consequences worth remembering, with the full runbook in
 
 - Mount VirtIO ISO alongside Windows ISO before starting installer — required for disk and NIC visibility
 - Allocate minimum 4 GB RAM, 2 vCPUs
-- RDP firewalled to ZeroTier subnet; Proxmox noVNC as fallback
+- RDP reachable from the LAN and over WireGuard only, never forwarded publicly; Proxmox noVNC as fallback
 
 ---
 

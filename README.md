@@ -10,7 +10,7 @@ Infrastructure-as-code for a two-node Proxmox cluster homelab. See `agent.md` fo
 
 - Proxmox VE installed bare-metal on each machine, joined into one cluster (`docs/cluster.md`)
 - Both nodes on Proxmox VE 8.4, using the `pve-no-subscription` repo, and kept on matching versions (`docs/cluster.md#packages-and-upgrades`)
-- Nodes accessible on the local network (or via ZeroTier for remote work)
+- Nodes accessible on the local network (or over the Deco's WireGuard VPN for remote work, see [`docs/remote-access.md`](docs/remote-access.md))
 
 ### 2. Terraform
 
@@ -155,6 +155,6 @@ see [the cutover runbook](docs/lab-subnet.md#cutover-the-party-time-chain).
 ├── agent.md              # Architecture decisions and conventions
 ├── docs/                 # Codemaps + design notes (e.g. lab-subnet.md)
 ├── terraform/            # VM provisioning (Proxmox)
-├── ansible/              # VM configuration (Docker, UFW, ZeroTier, etc.)
+├── ansible/              # VM configuration (Docker, nginx, router, backups, etc.)
 └── compose/              # Docker Compose stacks per service
 ```
