@@ -20,11 +20,14 @@ router_lan_address: 192.168.68.100
 # that breaks; with true, replies go to router_lan_ip directly on the LAN.
 router_masquerade_to_lan: true
 
-# Subnets allowed to SSH into the router VM itself (Ansible control machine and
-# the lab hosts).
-router_ssh_allowed_subnets:
-  - "{{ router_lan_subnet }}"
-  - "{{ router_lab_subnet }}"
+# Remote-access VPN client subnets (the Deco's WireGuard server) that get the same
+# SSH and DNS access as the LAN. Empty unless set in group_vars/tag_router.yml.
+# See docs/remote-access.md.
+router_vpn_subnets: []
+
+# Subnets allowed to SSH into the router VM itself (Ansible control machine, the
+# lab hosts and VPN clients).
+router_ssh_allowed_subnets: "{{ [router_lan_subnet, router_lab_subnet] + router_vpn_subnets }}"
 
 # ── Internal DNS (dnsmasq) ───────────────────────────────────────────────────
 # The records themselves (router_dns_domain, router_dns_hosts,
@@ -48,9 +51,7 @@ router_dns_upstreams:
   - 9.9.9.9
 
 # Subnets allowed to query the resolver.
-router_dns_allowed_subnets:
-  - "{{ router_lan_subnet }}"
-  - "{{ router_lab_subnet }}"
+router_dns_allowed_subnets: "{{ [router_lan_subnet, router_lab_subnet] + router_vpn_subnets }}"
 
 # TTL handed out for local records, in seconds. Short, so a changed address
 # reaches clients quickly.

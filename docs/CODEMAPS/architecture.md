@@ -52,8 +52,8 @@ can't take the backups down along with the things they back up.
   Linux/Windows work (follow the Deco's ICMP redirect, bypass it); macOS/iOS ignore
   redirects and stall after ~10 packets on the Deco's hairpin path → Macs need a
   local route, iPhones need DHCP option 121 (future) — see [`../lab-subnet.md`](../lab-subnet.md)
-- Remote access: ZeroTier mesh VPN (planned on VMs); Ansible currently over LAN
-- UFW on each VM: deny inbound except ZeroTier subnet port 22 (planned)
+- Remote access: WireGuard server on the Deco (tunnel `10.5.5.0/24`); the router
+  allows it DNS + SSH via `router_vpn_subnets` — see [`../remote-access.md`](../remote-access.md)
 - Public services: Cloudflare Tunnel (outbound-only, no open ports — planned)
 
 ## Provisioning Flow

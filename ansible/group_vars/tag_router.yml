@@ -10,6 +10,13 @@ router_lab_subnet: 10.10.10.0/24
 # The Deco's LAN is a /22 (192.168.68.1–192.168.71.254), not a /24.
 router_lan_subnet: 192.168.68.0/22
 
+# The Deco's WireGuard server hands clients addresses from 10.5.5.0/24 (server
+# 10.5.5.1, first peer 10.5.5.2). Listed so VPN clients can use the router's DNS
+# and SSH even if the Deco doesn't NAT them to its LAN address. Forwarding into
+# the lab and the front door already accept any source. See docs/remote-access.md.
+router_vpn_subnets:
+  - 10.5.5.0/24
+
 # Keep true even though the Deco now routes 10.10.10.0/24 -> 192.168.68.100.
 # With false, LAN hosts answer lab-initiated connections via the Deco, whose
 # hairpin path stalls for macOS/iOS. See docs/lab-subnet.md.
