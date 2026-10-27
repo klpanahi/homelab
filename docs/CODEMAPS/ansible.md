@@ -90,6 +90,9 @@ entirely. This is why the second source is named `homelab1.proxmox.yml`, not
 
 ```
 site.yml
+  hosts: proxmox_hosts     → role proxmox_host (repo-owned): e1000e NIC offloads
+                             off; enterprise apt repos commented out,
+                             pve-no-subscription.list added (no package changes)
   hosts: tag_ansible:!tag_router → avahi-daemon/libnss-mdns (mDNS) on every VM
                              except the router (avahi would publish its lab
                              address to LAN clients that can't route to it)

@@ -27,3 +27,31 @@
   loop: "{{ proxmox_host_offload_off_nics }}"
   # In --check the unit file above is never written, so systemd can't find it.
   ignore_errors: "{{ ansible_check_mode }}"
+
+# Neither host has a subscription, so the enterprise repos 401 and break
+# `apt update`. Keep them commented out (not deleted, so pve-manager upgrades
+# find their conffile unchanged) and use pve-no-subscription instead. Only the
+# source lists change here; nothing is installed or upgraded.
+- name: Comment out the Proxmox enterprise repos
+  ansible.builtin.lineinfile:
+    path: "/etc/apt/sources.list.d/{{ item.file }}"
+    regexp: '^#?\s*deb\s+{{ item.repo | regex_escape }}\s*$'
+    line: "# deb {{ item.repo }}"
+  loop:
+    - file: pve-enterprise.list
+      repo: "https://enterprise.proxmox.com/debian/pve {{ ansible_facts['distribution_release'] }} pve-enterprise"
+    - file: ceph.list
+      repo: "https://enterprise.proxmox.com/debian/ceph-quincy {{ ansible_facts['distribution_release'] }} enterprise"
+  loop_control:
+    label: "{{ item.file }}"
+
+# A plain copy rather than apt_repository (deprecated) or deb822_repository
+# (would rewrite the file in .sources format), so the hand-made file matches.
+- name: Add the pve-no-subscription repo
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/pve-no-subscription.list
+    content: |
+      deb http://download.proxmox.com/debian/pve {{ ansible_facts['distribution_release'] }} pve-no-subscription
+    owner: root
+    group: root
+    mode: "0644"

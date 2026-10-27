@@ -74,6 +74,10 @@ ansible-playbook site.yml
   It turns off offloads on the Intel I219 NIC (e1000e), which otherwise hangs
   and resets the link under load. Apply it alone with
   `ansible-playbook site.yml --limit proxmox_hosts`.
+- The same play keeps the hosts on the free Proxmox repos: the enterprise lines
+  in `pve-enterprise.list` and `ceph.list` stay commented out (no subscription,
+  so they 401 on `apt update`) and `pve-no-subscription.list` holds the
+  `pve-no-subscription` repo. It only edits source lists; upgrades stay manual.
 - The `tag_router` play configures the lab subnet gateway (IP forwarding +
   nftables masquerade). It needs the `ansible.posix` collection for the `sysctl`
   module — Homebrew's Ansible already bundles it (and `community.proxmox`), so
