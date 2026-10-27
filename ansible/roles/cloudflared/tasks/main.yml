@@ -1,0 +1,60 @@
+---
+# Runs a remotely-managed Cloudflare tunnel (hostnames are configured in the
+# Cloudflare dashboard) on the tag_cloudflared hosts.
+- name: Add Cloudflare GPG key
+  ansible.builtin.get_url:
+    url: https://pkg.cloudflare.com/cloudflare-main.gpg
+    dest: /usr/share/keyrings/cloudflare-main.gpg
+    mode: "0644"
+
+- name: Add Cloudflare apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared {{ ansible_distribution_release }} main"
+    filename: cloudflared
+    state: present
+
+- name: Install cloudflared
+  ansible.builtin.apt:
+    name: cloudflared
+    state: present
+    update_cache: true
+
+- name: Create the cloudflared config directory
+  ansible.builtin.file:
+    path: /etc/cloudflared
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# The token goes in a root-only environment file, not on ExecStart: unit files
+# are world-readable (systemctl cat), so a token on the command line was
+# readable by every user on the guest.
+- name: Write the tunnel token environment file
+  ansible.builtin.copy:
+    dest: /etc/cloudflared/tunnel.env
+    content: |
+      TUNNEL_TOKEN={{ cloudflare_tunnel_token }}
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart cloudflared
+
+- name: Deploy cloudflared systemd service
+  ansible.builtin.template:
+    src: cloudflared.service.j2
+    dest: /etc/systemd/system/cloudflared.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart cloudflared
+
+- name: Enable and start cloudflared
+  ansible.builtin.systemd:
+    name: cloudflared
+    enabled: true
+    state: started
+    daemon_reload: true

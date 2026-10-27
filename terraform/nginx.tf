@@ -1,7 +1,6 @@
-# Prerequisites:
-#   1. Enable "Snippets" on local storage in Proxmox:
-#      Datacenter → Storage → local → Edit → Content → check Snippets
-#   2. Set nginx_ssh_public_key in terraform.tfvars
+# nginx-cloudflared runs as an unprivileged LXC, not a VM: nginx and cloudflared
+# need a few MB each, and a VM spent ~300 MB of its 1 GB on Ubuntu itself.
+# Set nginx_ssh_public_key in terraform.tfvars.
 
 # Downloads the Ubuntu 24.04 *standard server* cloud image to Proxmox's ISO store.
 # Do NOT use the "minimal" image: its stripped-down cloud-init does not detect the
@@ -17,78 +16,21 @@ resource "proxmox_download_file" "ubuntu_noble_cloud_image" {
   overwrite = false
 }
 
-# Cloud-init user-data: creates the ubuntu user and installs qemu-guest-agent.
-# nginx itself is intentionally NOT installed here — Ansible (geerlingguy.nginx)
-# owns nginx so config is managed in one place. The guest agent stays because the
-# Proxmox dynamic inventory relies on it to report the VM's IP to Ansible.
-resource "proxmox_virtual_environment_file" "nginx_cloud_init" {
-  content_type = "snippets"
+# Ubuntu 24.04 system container template for the LXC guests (nginx-cloudflared,
+# nginx-internal). A system container, not an OCI app container: it runs systemd
+# and sshd, so Ansible and party-time's deploy manage it exactly like a VM. OCI
+# app containers are tracked on the homelab to-do list until PVE 9.
+resource "proxmox_download_file" "ubuntu_noble_lxc_template" {
+  content_type = "vztmpl"
   datastore_id = "local"
   node_name    = var.proxmox_node
 
-  source_raw {
-    data      = <<-EOF
-      #cloud-config
-      hostname: nginx-cloudflared
-      package_update: true
-      users:
-        - name: ubuntu
-          groups: sudo
-          shell: /bin/bash
-          sudo: ALL=(ALL) NOPASSWD:ALL
-          ssh_authorized_keys:
-            - ${var.nginx_ssh_public_key}
-      packages:
-        - qemu-guest-agent
-      runcmd:
-        - systemctl enable --now qemu-guest-agent
-      EOF
-    file_name = "nginx-cloud-init.yaml"
-  }
+  url       = "http://download.proxmox.com/images/system/ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
+  file_name = "ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
+  overwrite = false
 }
 
-# Cloud-init network-config (v2). Proxmox's auto-generated network data forces
-# the NIC to rename to "eth0" via cloud-init v1; on Ubuntu 24.04 the interface
-# enumerates as ens18/enp0s18 and that rename silently fails, leaving the guest
-# with no network (and therefore no apt, no qemu-guest-agent). Matching by
-# interface-name glob instead binds DHCP/static to whatever the real name is.
-locals {
-  nginx_network_config = var.nginx_static_ip != "" ? yamlencode({
-    version = 2
-    ethernets = {
-      primary = {
-        match       = { name = "e*" }
-        dhcp4       = false
-        addresses   = [var.nginx_static_ip]
-        routes      = [{ to = "default", via = var.nginx_gateway }]
-        nameservers = { addresses = [var.nginx_nameserver] }
-      }
-    }
-    }) : yamlencode({
-    version = 2
-    ethernets = {
-      primary = {
-        match       = { name = "e*" }
-        dhcp4       = true
-        nameservers = { addresses = [var.nginx_nameserver] }
-      }
-    }
-  })
-}
-
-resource "proxmox_virtual_environment_file" "nginx_network_config" {
-  content_type = "snippets"
-  datastore_id = "local"
-  node_name    = var.proxmox_node
-
-  source_raw {
-    data      = local.nginx_network_config
-    file_name = "nginx-network-config.yaml"
-  }
-}
-
-resource "proxmox_virtual_environment_vm" "nginx" {
-  name      = "nginx-cloudflared"
+resource "proxmox_virtual_environment_container" "nginx" {
   node_name = var.proxmox_node
   vm_id     = var.nginx_vm_id
 
@@ -97,57 +39,65 @@ resource "proxmox_virtual_environment_vm" "nginx" {
   # (the "nginx" tag becomes the tag_nginx group that site.yml targets).
   tags = ["ansible", "nginx", "cloudflared"]
 
-  machine = "q35"
-  on_boot = true
-  started = true
+  unprivileged  = true
+  start_on_boot = true
+  started       = true
 
-  agent {
-    enabled = true
-    # Bound the wait. Once networking works the agent comes up within a few
-    # minutes of first boot; if it doesn't, fail fast instead of blocking 15m.
-    timeout = "8m"
+  # systemd in Ubuntu 24.04 needs nesting to set up its service sandboxes
+  # inside an unprivileged container.
+  features {
+    nesting = true
+  }
+
+  initialization {
+    hostname = "nginx-cloudflared"
+
+    ip_config {
+      ipv4 {
+        address = var.nginx_static_ip != "" ? var.nginx_static_ip : "dhcp"
+        gateway = var.nginx_static_ip != "" ? var.nginx_gateway : null
+      }
+    }
+
+    dns {
+      servers = [var.nginx_nameserver]
+    }
+
+    # Proxmox installs this key for root. LXC guests have no ubuntu user, so
+    # Ansible connects as root (group_vars/proxmox_all_lxc.yml).
+    user_account {
+      keys = [trimspace(var.nginx_ssh_public_key)]
+    }
   }
 
   cpu {
     cores = var.nginx_cpu_cores
-    type  = "x86-64-v2-AES"
   }
 
   memory {
     dedicated = var.nginx_memory_mb
+    swap      = var.nginx_memory_mb
   }
 
-  network_device {
+  network_interface {
+    name   = "eth0"
     bridge = var.vm_network_bridge
   }
 
   disk {
     datastore_id = "local-lvm"
-    file_id      = proxmox_download_file.ubuntu_noble_cloud_image.id
-    interface    = "virtio0"
-    iothread     = true
-    discard      = "on"
     size         = var.nginx_disk_gb
   }
 
   operating_system {
-    type = "l26"
+    template_file_id = proxmox_download_file.ubuntu_noble_lxc_template.id
+    type             = "ubuntu"
   }
 
-  initialization {
-    # Networking is fully owned by the custom network-config snippet below
-    # (matches the NIC by name glob to dodge the eth0 rename failure). Do not
-    # also set ip_config here — Proxmox would emit a conflicting ipconfig0.
-    user_data_file_id    = proxmox_virtual_environment_file.nginx_cloud_init.id
-    network_data_file_id = proxmox_virtual_environment_file.nginx_network_config.id
-  }
-
-  # cloud-init applies network config at first boot only, and a changed snippet
-  # makes the provider REPLACE this VM — wiping its disk. The address is changed
-  # in-guest instead (docs/lab-subnet.md, "Moving an existing VM"); the snippet
-  # still decides what a deliberately rebuilt VM gets
-  # (terraform apply -replace=<this resource>).
+  # A new template or initialization block would make the provider REPLACE the
+  # container, wiping it. Rebuild deliberately with
+  # terraform apply -replace=<this resource>.
   lifecycle {
-    ignore_changes = [initialization]
+    ignore_changes = [initialization, operating_system]
   }
 }

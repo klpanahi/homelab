@@ -34,7 +34,7 @@ Designed for headless, always-on server use with a full REST API (usable with Te
 | `homelab2` (`192.168.68.65`) | 8 GB | 500 GB | homeassistant, nginx, docker, nginx-internal, router |
 | `homelab1` (`192.168.68.75`) | 8 GB | 500 GB | backup, immich |
 
-- **RAM is the binding constraint, not disk.** homelab2's VMs already allocate ~9 GB (HAOS 4 GB, docker 2 GB, nginx / nginx-internal / router 1 GB each — see the `*_memory_mb` defaults in `terraform/variables.tf`), so it is overcommitted and has no room for new workloads. homelab1 now runs the 2 GB backup VM and the 4 GB immich VM (301), so it has only ~2 GB left. Neither host has room for another memory-hungry service without a RAM upgrade.
+- **RAM is the binding constraint, not disk.** homelab2's guests allocate ~7.5 GB (HAOS 4 GB, docker 2 GB, router 1 GB, and the nginx-cloudflared / nginx-internal LXCs 256 MB each — see the `*_memory_mb` defaults in `terraform/variables.tf`), so it is still close to full. Moving the two nginx guests from 1 GB VMs to LXCs on 2026-10-26 freed ~1.5 GB. homelab1 now runs the 2 GB backup VM and the 4 GB immich VM (301), so it has only ~2 GB left. Neither host has room for another memory-hungry service without a RAM upgrade.
 - One NIC per host and an unmanaged switch — no VLANs (see "Why the Lab Subnet is Routed" below).
 - The TP-Link Deco is the LAN router and DHCP server, and also runs the **WireGuard VPN server** used for remote access to LAN-only services. That is separate from ZeroTier, which carries SSH/Ansible/Terraform admin traffic.
 
@@ -43,6 +43,14 @@ Designed for headless, always-on server use with a full REST API (usable with Te
 ## VM Strategy
 
 Workloads run as **Docker containers inside Linux VMs** rather than one VM per service. This keeps VM count low, makes services composable via `docker-compose.yml`, and keeps everything version-pinned and git-trackable.
+
+**Exception: the two nginx guests are unprivileged LXCs** (`proxmox_virtual_environment_container`, Ubuntu 24.04 system template). They run only nginx and cloudflared, which use a few MB each, while a VM spent ~300 MB of its 1 GB on Ubuntu itself. They are system containers with systemd and sshd, not OCI app containers, so Ansible and party-time's deploy treat them like VMs. LXC-specific details:
+- **No guest agent.** `ansible/inventory/proxmox.yml` reads their address from the `ip=` in `net0`, and connects as `root` (the template has no `ubuntu` user).
+- **DNS.** Proxmox writes a plain `/etc/resolv.conf` into the container. `site.yml` replaces it with the systemd-resolved stub (`/etc/.pve-ignore.resolv.conf` stops Proxmox rewriting it) so the `home.arpa` route works as on the VMs.
+- **avahi.** Unprivileged LXCs share one host uid range, so `site.yml` drops avahi's `rlimit-nproc`, which otherwise stops the second container's avahi-daemon from starting.
+- **cloudflared's UDP buffers** are a host-kernel limit, raised by the `proxmox_host` role.
+
+Native OCI app containers (PVE 9.1+) are tracked on the homelab to-do list. They aren't usable here yet: the hosts run PVE 8.4, the feature is a tech preview, and the bpg provider drops environment variables for OCI containers.
 
 ---
 

@@ -78,8 +78,8 @@ entirely. Name any additional source `<name>.proxmox.yml`.
 | `tag_router` | router | Proxmox tag `router` |
 | `tag_backup` | backup | Proxmox tag `backup` |
 | `tag_immich` | immich | Proxmox tag `immich` |
-| `proxmox_all_qemu` / `_all_running` | all VMs | VM type/status |
-| `proxmox_homelab2_qemu` | homeassistant, nginx, docker, nginx-internal, router | per-node |
+| `proxmox_all_qemu` / `proxmox_all_lxc` / `_all_running` | VMs / LXCs (nginx-cloudflared, nginx-internal) | guest type/status |
+| `proxmox_homelab2_qemu` / `proxmox_homelab2_lxc` | homeassistant, docker, router / nginx-cloudflared, nginx-internal | per-node |
 | `proxmox_homelab1_qemu` | backup, immich (immich is not managed by this repo) | per-node |
 | `proxmox_nodes` | homelab2, homelab1 | cluster nodes |
 

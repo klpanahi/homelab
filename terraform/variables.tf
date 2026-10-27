@@ -83,15 +83,15 @@ variable "nginx_cpu_cores" {
 }
 
 variable "nginx_memory_mb" {
-  description = "RAM in MB for the nginx VM"
+  description = "RAM in MB for the nginx LXC (swap is set to the same size)"
   type        = number
-  default     = 1024
+  default     = 256
 }
 
 variable "nginx_disk_gb" {
-  description = "Root disk size in GB for the nginx VM"
+  description = "Root disk size in GB for the nginx LXC"
   type        = number
-  default     = 20
+  default     = 8
 }
 
 variable "ssh_public_key" {
@@ -192,15 +192,15 @@ variable "nginx_internal_cpu_cores" {
 }
 
 variable "nginx_internal_memory_mb" {
-  description = "RAM in MB for the nginx-internal VM"
+  description = "RAM in MB for the nginx-internal LXC (swap is set to the same size)"
   type        = number
-  default     = 1024
+  default     = 256
 }
 
 variable "nginx_internal_disk_gb" {
-  description = "Root disk size in GB for the nginx-internal VM"
+  description = "Root disk size in GB for the nginx-internal LXC"
   type        = number
-  default     = 20
+  default     = 8
 }
 
 variable "nginx_internal_static_ip" {

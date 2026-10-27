@@ -27,6 +27,7 @@ ansible/roles/*
 !ansible/roles/immich/
 !ansible/roles/restic_server/
 !ansible/roles/proxmox_host/
+!ansible/roles/cloudflared/
 
 # Credentials — never commit. Only *.example files are tracked.
 *.tfvars
@@ -46,7 +47,6 @@ id_ed25519*
 # General
 .DS_Store
 *.swp
-ansible/roles/cloudflared/
 ansible/roles/geerlingguy.*
 
 # direnv (generated CA bundle; see .envrc)
