@@ -46,6 +46,16 @@
         state: absent
         purge: true
 
+    # The Ubuntu LXC template ships without curl, which party-time's
+    # ops/healthcheck.sh and the diagnose skills run on every guest.
+    - name: Install baseline diagnostic tools
+      ansible.builtin.apt:
+        name:
+          - curl
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
     # Send home.arpa lookups to the router's dnsmasq and leave everything else
     # on the VM's existing resolver (8.8.8.8 from terraform *_nameserver). A
     # resolved routing domain works on running VMs without touching the netplan
