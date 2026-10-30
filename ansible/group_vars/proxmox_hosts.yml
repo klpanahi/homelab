@@ -8,3 +8,10 @@
 # offloads off is the standard Proxmox workaround.
 proxmox_host_offload_off_nics:
   - enp0s31f6
+
+# The backup disk: a 1.8 TB Seagate Portable USB drive, ext4 labelled
+# homelab-backup (docs/backups.md). It is plugged into homelab2 for now. The
+# plan is homelab1, so homelab2's workloads are backed up off-host: move the
+# drive, change this to homelab1, and re-run `site.yml --limit proxmox_hosts`.
+proxmox_backup_disk_node: homelab2
+proxmox_backup_disk_uuid: f4cfb007-d29c-4cc4-bac3-21785c26c929

@@ -1,0 +1,136 @@
+---
+# Nightly vzdump backups of every guest to the USB backup disk (docs/backups.md).
+#
+# The disk hangs off one node (proxmox_backup_disk_node). That node mounts it
+# and backs its guests up to it as a local directory; every other node backs up
+# to the same directory over NFS. Storage and jobs are cluster-wide
+# (/etc/pve), so they are written once, from the disk node.
+
+- name: Set up the backup disk on its node
+  when: inventory_hostname == proxmox_backup_disk_node
+  block:
+    - name: Create the backup disk mount point
+      ansible.builtin.file:
+        path: "{{ proxmox_backup_mount }}"
+        state: directory
+        mode: "0755"
+
+    # nofail: a missing or dead USB disk must never stop the host booting.
+    # The storage below sets is_mountpoint, so Proxmox marks it offline (and
+    # the job fails loudly) instead of writing backups onto the root disk.
+    - name: Mount the backup disk by UUID
+      ansible.posix.mount:
+        path: "{{ proxmox_backup_mount }}"
+        src: "UUID={{ proxmox_backup_disk_uuid }}"
+        fstype: ext4
+        opts: defaults,nofail,x-systemd.device-timeout=10s
+        state: mounted
+
+    - name: Install the NFS server
+      ansible.builtin.apt:
+        name: nfs-kernel-server
+        state: present
+
+    - name: Create the NFS exports drop-in directory
+      ansible.builtin.file:
+        path: /etc/exports.d
+        state: directory
+        mode: "0755"
+
+    # Only the other Proxmox nodes may mount it. Their addresses come from
+    # inventory/hosts.yml, so a DNS outage at boot can't break the export.
+    - name: Export the backup disk to the other nodes
+      ansible.builtin.copy:
+        dest: /etc/exports.d/homelab-backup.exports
+        content: |
+          # Managed by homelab ansible/roles/proxmox_host/tasks/backups.yml.
+          {% for host in proxmox_backup_nfs_clients %}
+          {{ proxmox_backup_mount }} {{ hostvars[host].ansible_host }}(rw,sync,no_subtree_check,no_root_squash)
+          {% endfor %}
+        mode: "0644"
+      register: backup_exports
+
+    - name: Reload NFS exports
+      ansible.builtin.command: exportfs -ra
+      when: backup_exports.changed
+      changed_when: true
+
+- name: Remove the backup disk export from nodes that no longer hold the disk
+  ansible.builtin.file:
+    path: /etc/exports.d/homelab-backup.exports
+    state: absent
+  when: inventory_hostname != proxmox_backup_disk_node
+
+# Two storage entries for the same directory: a local dir on the disk node,
+# and NFS everywhere else. Each storage is restricted to its nodes, so a job
+# always writes through the right one. Both show the same backups.
+- name: Configure the backup storages and jobs
+  when: inventory_hostname == proxmox_backup_disk_node
+  block:
+    # pvesh reports a fresh digest after every write, so compare only the
+    # fields managed here and write only when they differ.
+    - name: Define the local backup storage
+      ansible.builtin.shell: |
+        set -e
+        id={{ proxmox_backup_storage }}
+        want_nodes={{ proxmox_backup_disk_node }}
+        if cur=$(pvesh get /storage/$id --output-format json 2>/dev/null); then
+          nodes=$(printf '%s' "$cur" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("nodes",""))')
+          [ "$nodes" = "$want_nodes" ] && { echo OK; exit 0; }
+          pvesm set $id --nodes $want_nodes
+        else
+          pvesm add dir $id --path {{ proxmox_backup_mount }} \
+            --content backup --is_mountpoint yes --nodes $want_nodes
+        fi
+        echo CHANGED
+      register: backup_storage_local
+      changed_when: "'CHANGED' in backup_storage_local.stdout"
+
+    # Proxmox treats an NFS storage's server as fixed, so moving the disk to
+    # another node means removing and re-adding this entry. Backups already on
+    # the disk are untouched; only the storage definition is replaced.
+    - name: Define the NFS backup storage for the other nodes
+      when: proxmox_backup_nfs_clients | length > 0
+      ansible.builtin.shell: |
+        set -e
+        id={{ proxmox_backup_storage_nfs }}
+        want_server={{ proxmox_backup_disk_node }}.home.arpa
+        want_nodes={{ proxmox_backup_nfs_clients | join(',') }}
+        if cur=$(pvesh get /storage/$id --output-format json 2>/dev/null); then
+          read -r server nodes <<EOF
+        $(printf '%s' "$cur" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("server",""), d.get("nodes",""))')
+        EOF
+          if [ "$server" = "$want_server" ] && [ "$nodes" = "$want_nodes" ]; then echo OK; exit 0; fi
+          if [ "$server" = "$want_server" ]; then
+            pvesm set $id --nodes $want_nodes; echo CHANGED; exit 0
+          fi
+          pvesm remove $id
+        fi
+        pvesm add nfs $id --server $want_server --export {{ proxmox_backup_mount }} \
+          --content backup --options vers=4.2 --nodes $want_nodes
+        echo CHANGED
+      register: backup_storage_nfs
+      changed_when: "'CHANGED' in backup_storage_nfs.stdout"
+
+    # One job per node, each writing through the storage that node can see.
+    - name: Define the nightly backup job for each node
+      ansible.builtin.shell: |
+        set -e
+        id=homelab-nightly-{{ item }}
+        args="--schedule '{{ proxmox_backup_schedule }}' --node {{ item }} --all 1 \
+          --storage {{ proxmox_backup_storage if item == proxmox_backup_disk_node else proxmox_backup_storage_nfs }} \
+          --mode snapshot --compress zstd --enabled 1 \
+          --prune-backups '{{ proxmox_backup_prune }}' --notes-template '{{ '{{' }}guestname{{ '}}' }}' \
+          --comment 'Managed by homelab ansible (proxmox_host role)'"
+        if pvesh get /cluster/backup/$id >/dev/null 2>&1; then
+          before=$(pvesh get /cluster/backup/$id --output-format json)
+          eval pvesh set /cluster/backup/$id $args
+          after=$(pvesh get /cluster/backup/$id --output-format json)
+          [ "$before" = "$after" ] && echo OK || echo CHANGED
+        else
+          eval pvesh create /cluster/backup --id $id $args
+          echo CHANGED
+        fi
+      loop: "{{ groups['proxmox_hosts'] }}"
+      register: backup_jobs
+      changed_when: "'CHANGED' in backup_jobs.stdout"

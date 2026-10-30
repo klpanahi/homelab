@@ -16,6 +16,7 @@ Architecture, infrastructure, and dependency details live in token-lean codemaps
 Design notes that are not a system map live alongside them:
 
 - [`docs/lab-subnet.md`](docs/lab-subnet.md) — the routed lab subnet: why L3-only, address plan, bring-up, migration traps
+- [`docs/backups.md`](docs/backups.md) — nightly vzdump of every guest to the USB backup disk, the guest-level backup timers, restore steps
 
 **After making code changes, update the codemaps** by running `/ecc:update-codemaps` in Claude Code.
 
