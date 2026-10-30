@@ -45,7 +45,7 @@ iPhone/Mac (10.5.5.x) ──wg──▶ Deco ──LAN──▶ router 192.168.6
 From the main checkout, not a worktree (worktrees have no vault):
 
 ```bash
-cd ~/Documents/Workspace/homelab/ansible
+cd ~/Documents/Workspace/homelab-workspace/repos/homelab/ansible
 ansible-playbook site.yml --limit tag_router
 ```
 

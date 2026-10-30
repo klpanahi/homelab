@@ -20,7 +20,7 @@ below have been observed, and all four occurred within a single day. Work the tr
 ## Environment
 
 Proxmox homelab, Ubuntu VMs. Ansible installs **`avahi-daemon` and `libnss-mdns` on every
-VM** via the `tag_ansible` play in `~/Documents/Workspace/homelab/ansible/site.yml`.
+VM** via the `tag_ansible` play in `~/Documents/Workspace/homelab-workspace/repos/homelab/ansible/site.yml`.
 Control machine is a Mac. DHCP is served by the router at `192.168.68.1`.
 
 | Host | IP |
