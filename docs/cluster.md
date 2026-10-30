@@ -110,7 +110,7 @@ setup:
 ```bash
 brew install direnv
 echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc   # then open a new shell
-cd ~/Documents/Workspace/homelab && direnv allow
+cd ~/Documents/Workspace/homelab-workspace/repos/homelab && direnv allow
 ```
 
 Without direnv, run the same exports by hand (`source .envrc` from the repo
