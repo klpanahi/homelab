@@ -127,22 +127,58 @@ resolvectl domain                 # ~home.arpa on the main link
 getent hosts docker.home.arpa     # 10.10.10.20
 ```
 
-## mDNS / avahi
+## Names, not IPs
 
-Nothing changes for mDNS. `.local` names (`docker.local`, `nginx-internal.local`)
-are still answered by avahi over multicast, and `home.arpa` is ordinary unicast
-DNS. The two zones don't overlap, and clients query each one the right way on
-their own.
+`home.arpa` is the only naming in the homelab. Services, scripts and people
+address every guest by its name here, never by IP, so moving a guest means
+changing one record in `records.yml`. The places that still hold a literal
+address are the ones that can't take a name: DNS servers themselves
+(`lab_dns_server`, the nginx `resolver`), the router's nftables front-door
+DNAT (`router_front_door_target`), Terraform's static addressing, and the
+Proxmox API URL in the inventory (its certificate is issued for the IP).
 
-Service-to-service traffic now uses `home.arpa`: the backup job reaches
-`docker.home.arpa` and `haos.home.arpa`, and party-time's nginx
-upstreams (in the party-time repo) point at `docker.home.arpa`. Once nothing
-resolves a `.local` name, avahi can come out of the `tag_ansible` play in
-`site.yml`. That removes the failure class the `fix-homelab-mdns` skill exists
-for: a moved lease silently changing what a name means.
+### nginx backends
 
-The router stays excluded from avahi, as before. It publishes its LAN address as
-`router.home.arpa` here instead.
+nginx resolves a host in a literal `proxy_pass` or an `upstream {}` block once,
+when it starts, and **refuses to start if the name doesn't resolve**. On
+2026-10-23 nginx-cloudflared booted before the router's DNS answered, nginx
+exited with `host not found in upstream`, and the public party-time site was
+down for three days.
+
+So every vhost proxies to a variable instead:
+
+```nginx
+set $immich_backend http://immich.home.arpa:2283;
+location / {
+    proxy_pass $immich_backend;
+}
+```
+
+With a variable, nginx looks the name up per request through the `resolver`
+in `/etc/nginx/conf.d/resolver.conf` (installed on every nginx host by
+`ansible/tasks/nginx-resolver.yml`), and re-checks it every 30 seconds. If DNS
+is down, requests get a 502 until it's back, but nginx itself stays up and
+recovers on its own. The resolver is `127.0.0.53`, the host's systemd-resolved,
+which sends `home.arpa` to the router like every other lookup on the guest.
+
+- Use a variable for every backend: the homelab vhosts in
+  `group_vars/tag_nginx*.yml` do, and so do party-time's (`$public_backend`,
+  `$admin_backend`, mapped in the party-time repo's `deploy/nginx/*-upstream.conf`).
+- Keep exactly one http-level `resolver` per host (this file). A second one in
+  another conf.d file makes `nginx -t` fail as a duplicate.
+
+### mDNS was retired (2026-10-30)
+
+The guests used to also answer `.local` names over mDNS (avahi). It failed in
+several ways: avahi name conflicts renamed hosts to `nginx-internal-2.local`, a
+moved DHCP lease silently changed what `docker.local` meant, and a hand-added
+`/etc/hosts` line pinned a dead IP. `site.yml` now purges `avahi-daemon`,
+`avahi-utils` and `libnss-mdns` from every guest, which also takes
+`mdns4_minimal` out of `nsswitch.conf`, and the `fix-homelab-mdns` skill is
+gone. If something old still uses a `.local` name, give it the `home.arpa` name.
+
+Home Assistant still uses mDNS/SSDP on the LAN to discover IoT devices; that's
+inside HA and unrelated to how the homelab names its own machines.
 
 ## Failure and rollback
 

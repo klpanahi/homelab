@@ -6,10 +6,10 @@ IoT devices over mDNS/SSDP.
 
 | Name | Goes to | Used by |
 |---|---|---|
-| `https://homeassistant.panahi-systems.com` | router front door → nginx-internal (TLS) → `192.168.68.60:8123` | People: browsers, the companion app. HA's Local network URL |
+| `https://homeassistant.panahi-systems.com` | router front door → nginx-internal (TLS) → `haos.home.arpa:8123` | People: browsers, the companion app. HA's Local network URL |
 | `http://homeassistant.home.arpa` | 301 to the HTTPS name | Old bookmarks |
 | `http://haos.home.arpa:8123` | `192.168.68.60` directly | Services: the backup job (`backup_ha_url`) |
-| `http://192.168.68.60:8123` | HA directly | Fallback if the router or nginx-internal is down |
+| `http://haos.home.arpa:8123` | HA directly | Fallback if nginx-internal is down. `http://192.168.68.60:8123` if DNS (the router) is down too |
 
 ## Home and WireGuard only
 

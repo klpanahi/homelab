@@ -23,9 +23,8 @@ backup_ha_agent_id: hassio.local
 backup_ha_create_timeout: 1800
 
 # The docker VM (homelab2) that hosts party-time-db, reached over SSH.
-# Internal DNS, not docker.local: the record is pinned to the VM's fixed lab
-# address in ansible/dns/records.yml, while an mDNS name follows whatever the
-# VM advertises and a failed lookup makes the nightly dump fail quietly.
+# Internal DNS: the record is pinned to the VM's fixed lab address in
+# ansible/dns/records.yml.
 backup_docker_host: docker.home.arpa
 backup_docker_user: ubuntu
 

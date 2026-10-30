@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Symlink this repo's skills (fix-homelab-mdns, generic homelab
-# infrastructure skills) into ~/.claude/skills so they load no matter which
+# Symlink this repo's skills (generic homelab infrastructure skills) into ~/.claude/skills so they load no matter which
 # directory Claude Code is working from. party-time-specific skills are
 # linked separately by party-time/scripts/link-skills.sh.
 #

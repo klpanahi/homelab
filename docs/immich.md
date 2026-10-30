@@ -26,14 +26,14 @@ Hardware section of `agent.md`).
 
 - **Personal.** `photos.home.arpa` is an alias to `router` in
   `ansible/dns/records.yml`. The router forwards port 80/443 on `192.168.68.100`
-  to nginx-internal, whose `photos.home.arpa` vhost proxies to `10.10.10.50:2283`.
+  to nginx-internal, whose `photos.home.arpa` vhost proxies to `immich.home.arpa:2283`.
   Phones never talk to `10.10.10.x` directly, which is what stalls on Apple
   devices (docs/lab-subnet.md). Plain HTTP for now, since `home.arpa` can't get a
   public certificate; WireGuard encrypts it off-site.
 - **Share links.** [Immich Public Proxy](https://github.com/alangrainger/immich-public-proxy)
   runs next to the personal instance and serves only what is shared by link. The
   personal login, library and API are never on the internet.
-- **Austin.** nginx-cloudflared proxies the hostname to `10.10.10.50:2284`.
+- **Austin.** nginx-cloudflared proxies the hostname to `immich.home.arpa:2284`.
   Immich has no self sign-up: the first account created becomes the admin, and
   the admin creates everyone else.
 - **Machine learning** (faces, smart search) runs in one container shared by
@@ -104,7 +104,7 @@ One-time, into the personal instance:
 - **What:** every instance's library, including `library/backups`, where Immich
   writes its own database dump every night at 02:00. Thumbnails and transcoded
   video are skipped because Immich regenerates them.
-- **Where:** the restic REST server on the docker VM (`10.10.10.20:8000`, data
+- **Where:** the restic REST server on the docker VM (`docker.home.arpa:8000`, data
   on its `/srv/restic` disk), set in `/etc/immich-backup/homelab2.env`. A
   different machine, but the same building: there is no offsite copy. Another
   destination can be added later as another `.env` file in that directory.

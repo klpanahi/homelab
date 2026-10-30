@@ -16,6 +16,10 @@ nginx_remove_default_vhost: true
 # nginx, which routes by hostname to the immich VM. Each hostname also needs a
 # Public Hostname entry on the tunnel in the Cloudflare dashboard. Cloudflare
 # terminates TLS, so X-Forwarded-Proto is always https.
+#
+# Backends are addressed by home.arpa name through a variable, so nginx looks
+# them up per request (tasks/nginx-resolver.yml) and still starts if the name
+# doesn't resolve yet. Don't use a literal IP or name in proxy_pass.
 nginx_vhosts:
   # Austin's instance.
   - listen: "80"
@@ -30,8 +34,9 @@ nginx_vhosts:
       proxy_send_timeout 600s;
       send_timeout 600s;
 
+      set $immich_backend http://immich.home.arpa:2284;
       location / {
-          proxy_pass http://10.10.10.50:2284;
+          proxy_pass $immich_backend;
           proxy_http_version 1.1;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
@@ -48,8 +53,9 @@ nginx_vhosts:
     server_name: "immich-shared.panahi-systems.com"
     filename: "immich-share.conf"
     extra_parameters: |
+      set $immich_share_backend http://immich.home.arpa:3000;
       location / {
-          proxy_pass http://10.10.10.50:3000;
+          proxy_pass $immich_share_backend;
           proxy_http_version 1.1;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
