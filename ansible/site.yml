@@ -16,39 +16,45 @@
   roles:
     - proxmox_host
 
-# The router VM is excluded: it holds both a LAN and a lab address on one NIC,
-# and avahi publishes every address on an interface. LAN clients would resolve
-# router.local to 10.10.10.1 and fail to reach it. The router is addressed by its
-# static LAN IP instead.
+# Every managed VM except the router, which runs the resolver itself.
 - name: Common setup for all managed VMs
   hosts: tag_ansible:!tag_router
   become: true
   tasks:
-    - name: Install avahi-daemon and libnss-mdns for mDNS hostname resolution
+    # Names are served by the router's dnsmasq under home.arpa
+    # (docs/internal-dns.md). mDNS (.local via avahi) was retired on 2026-10-30:
+    # it broke repeatedly (name conflicts renaming hosts to *-2.local, stale
+    # leases, a pinned /etc/hosts line) and nothing uses .local names any more.
+    # Purging libnss-mdns also takes mdns4_minimal back out of nsswitch.conf.
+    # Safe to drop these two tasks once every guest has run them.
+    - name: Stop and disable avahi-daemon
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - avahi-daemon.socket
+        - avahi-daemon.service
+      failed_when: false
+
+    - name: Remove avahi and mDNS name resolution
       ansible.builtin.apt:
         name:
           - avahi-daemon
+          - avahi-utils
           - libnss-mdns
+        state: absent
+        purge: true
+
+    # The Ubuntu LXC template ships without curl, which party-time's
+    # ops/healthcheck.sh and the diagnose skills run on every guest.
+    - name: Install baseline diagnostic tools
+      ansible.builtin.apt:
+        name:
+          - curl
         state: present
         update_cache: true
-
-    # avahi caps its user at 3 processes (rlimit-nproc). Unprivileged LXCs
-    # all map their uids into the same host range, so the avahi user in every
-    # LXC on a host shares that one count and the second avahi-daemon fails to
-    # start. VMs have their own kernel and keep the default.
-    - name: Drop avahi's process limit inside LXC guests
-      ansible.builtin.lineinfile:
-        path: /etc/avahi/avahi-daemon.conf
-        regexp: '^#?\s*rlimit-nproc\s*='
-        line: "#rlimit-nproc=3"
-      when: ansible_facts['virtualization_type'] == 'lxc'
-      notify: Restart avahi-daemon
-
-    - name: Enable and start avahi-daemon
-      ansible.builtin.systemd:
-        name: avahi-daemon
-        enabled: true
-        state: started
+        cache_valid_time: 3600
 
     # Send home.arpa lookups to the router's dnsmasq and leave everything else
     # on the VM's existing resolver (8.8.8.8 from terraform *_nameserver). A
@@ -122,12 +128,6 @@
         state: restarted
       when: lab_dns_dropin.changed or (lxc_dns_dropin.changed | default(false))
 
-  handlers:
-    - name: Restart avahi-daemon
-      ansible.builtin.systemd:
-        name: avahi-daemon
-        state: restarted
-
 # Lab router/NAT gateway for the routed lab subnet (10.10.10.0/24) that lives on
 # the same physical wire as the LAN. Runs first so lab VMs have a working default
 # gateway before the plays that configure them. See docs/lab-subnet.md.
@@ -154,6 +154,9 @@
         state: absent
   roles:
     - geerlingguy.nginx
+  tasks:
+    - name: Install the home.arpa resolver
+      ansible.builtin.include_tasks: tasks/nginx-resolver.yml
 
 - name: Configure Cloudflare tunnels
   hosts: tag_cloudflared
@@ -199,9 +202,12 @@
         name: letsencrypt
   roles:
     - geerlingguy.nginx
-  # The links page at links.home.arpa, rendered from homepage_links in
-  # group_vars/tag_nginx_internal.yml. Its vhost is in nginx_vhosts there.
   tasks:
+    - name: Install the home.arpa resolver
+      ansible.builtin.include_tasks: tasks/nginx-resolver.yml
+
+    # The links page at links.home.arpa, rendered from homepage_links in
+    # group_vars/tag_nginx_internal.yml. Its vhost is in nginx_vhosts there.
     - name: Create the links page root
       ansible.builtin.file:
         path: /var/www/links

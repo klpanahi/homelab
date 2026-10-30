@@ -1,0 +1,27 @@
+---
+# Installs the resolver every nginx host uses to look up home.arpa backends at
+# request time. Included by the tag_nginx and tag_nginx_internal plays in
+# site.yml, after geerlingguy.nginx so /etc/nginx/conf.d exists.
+#
+# Vhosts proxy to a variable (`set $backend http://docker.home.arpa:8080;
+# proxy_pass $backend;`, or a map in conf.d) instead of a literal host or an
+# upstream {} block. nginx resolves a literal or upstream name once, at
+# startup, and refuses to start if it doesn't resolve yet; a variable is
+# resolved per request through this resolver and re-checked every `valid`.
+# That keeps nginx up across a boot-order race with the router's DNS, and
+# lets every backend be addressed by its home.arpa name instead of an IP.
+#
+# 127.0.0.53 is systemd-resolved on the host, which sends home.arpa to the
+# router's dnsmasq (the home-arpa.conf drop-in in the common play) and
+# everything else upstream. This is the only `resolver` at http level on these
+# hosts: a second one in another conf.d file would fail `nginx -t` as a
+# duplicate. party-time's conf.d maps (party-time repo, deploy/nginx/) rely on it.
+- name: Install the nginx resolver for home.arpa backends
+  ansible.builtin.copy:
+    dest: /etc/nginx/conf.d/resolver.conf
+    content: |
+      # Managed by homelab ansible/tasks/nginx-resolver.yml.
+      resolver 127.0.0.53 valid=30s ipv6=off;
+      resolver_timeout 5s;
+    mode: "0644"
+  notify: reload nginx

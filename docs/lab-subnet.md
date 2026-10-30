@@ -54,8 +54,8 @@ other reservations predate the lab and stay as they are:
 | `homeassistant` (VM 200) | `192.168.68.60` | mDNS/SSDP discovery of IoT devices on the LAN |
 
 `docker`, `nginx-cloudflared`, `nginx-internal` and `backup` used to be unreserved
-dynamic leases, the mDNS "lease moved" failure mode the
-[`fix-homelab-mdns`](../.claude/skills/fix-homelab-mdns/SKILL.md) skill documents
+dynamic leases, the mDNS "lease moved" failure mode (mDNS has since been
+retired, see [internal-dns.md](internal-dns.md#mdns-was-retired-2026-10-30))
 (docker has jumped `.89` → `.78` → `.88`; nginx-internal `.85` → `.89`). Once moved,
 none of them needs a reservation.
 
@@ -98,10 +98,10 @@ lab leases. Lab addresses are static, set by cloud-init (Terraform).
   cloud-init `initialization`, so an address change never rebuilds a running VM;
   see [Moving an existing VM](#moving-an-existing-vm-onto-the-lab-subnet).
 
-The router VM is deliberately excluded from the avahi play
-(`hosts: tag_ansible:!tag_router`): avahi publishes *every* address on an
-interface, so LAN clients would resolve `router.local` to `10.10.10.1` and fail
-to reach it. Address the router by its static LAN IP.
+The router VM is excluded from the common play
+(`hosts: tag_ansible:!tag_router`). That exclusion started because avahi would
+publish both of its addresses; avahi is gone now, and the router is addressed
+as `router.home.arpa`.
 
 ## Bring-up
 
@@ -312,14 +312,19 @@ ip -4 -o addr show scope global && ping -c2 10.10.10.1 && ping -c2 192.168.68.1
 That is the same file Terraform's snippet now generates, so a rebuild lands on the
 same address. Rollback is copying the saved file back and `sudo netplan apply`.
 
-### The mDNS trap — read before moving `docker`
+### The mDNS trap (historical: mDNS was retired on 2026-10-30)
+
+> This applied while guests still used `.local` names. Today everything uses
+> `home.arpa` records pinned in `ansible/dns/records.yml`, and nginx resolves
+> backends per request ([internal-dns.md](internal-dns.md#nginx-backends)), so
+> moving a guest means changing its record, not restarting nginx.
 
 avahi advertises whatever address the host actually holds, and mDNS answers
 cross subnets fine on a shared L2 segment. So the moment the docker VM moves,
 `docker.local` starts resolving to `10.10.10.20` **for every host on the LAN** —
 including the nginx VMs. nginx resolves upstream names once, at config-parse
 time, and refuses to start when that fails, so a half-moved chain takes the site
-down until a human intervenes (see `.claude/skills/fix-homelab-mdns`).
+down until a human intervenes.
 
 Therefore: move the party-time chain (`docker`, `nginx-cloudflared`,
 `nginx-internal`) **together in one window**, and restart nginx on both nginx VMs
@@ -362,7 +367,7 @@ port forward and the internal DNS records, so those must be merged first.
    `sudo systemctl start backup-postgres.service && journalctl -u backup-postgres -n 30`.
 7. **Clean up.** Delete any Deco reservations made for these VMs' old LAN leases
    (they now only shrink the pool); unreserved leases expire on their own. Remove
-   any `/etc/hosts` pins of the old addresses (Mode A in `fix-homelab-mdns`).
+   any `/etc/hosts` pins of the old addresses.
 
 The Ansible inventory needs no change: `ansible_host` comes from the guest agent,
 so it follows each VM to its new address.
@@ -425,9 +430,9 @@ Remaining steps, in dependency order:
 3. **Migrate the services** (`docker`, `nginx-cloudflared`, `nginx-internal`,
    `backup`) onto lab addresses in one window, per
    [the cutover](#cutover-the-party-time-chain), and replace `docker.local`
-   upstreams with the new zone names. Once nothing
-   resolves a `.local` name, avahi can come out of the `tag_ansible` play
-   entirely and the `fix-homelab-mdns` failure class disappears with it.
+   upstreams with the new zone names. **Done**, and avahi came out of the
+   `tag_ansible` play on 2026-10-30
+   ([internal-dns.md](internal-dns.md#mdns-was-retired-2026-10-30)).
 4. **Resolve lab names from the LAN.** Covered by step 1 once the Deco hands out
    `192.168.68.100` as DNS. Names people open from phones resolve to the router,
    which forwards 80/443 to nginx-internal in the lab, since `10.10.10.x` stalls
@@ -451,8 +456,9 @@ devices that live there, and it is already reserved at `.60`.
 - No isolation (see the warning at the top).
 - Lab VMs send only `home.arpa` lookups to `10.10.10.1` and keep public DNS
   (`8.8.8.8`) for everything else ([internal-dns.md](internal-dns.md#lab-vms)),
-  so a router outage breaks internal names but not public ones; `.local` names
-  still resolve over mDNS either way.
+  so a router outage breaks internal names but not public ones. There is no
+  mDNS fallback any more; nginx stays up and its backends return 502 until DNS
+  is back.
 - Once the Deco hands out `192.168.68.100` as DNS, the router VM is the house's
   resolver too — see [internal-dns.md](internal-dns.md#failure-and-rollback).
 
@@ -461,6 +467,6 @@ a reservation pointing at a MAC that no longer exists just shrinks the usable po
 
 Rollback is per-VM and cheap: point the VM's `*_static_ip` / `*_gateway` back at
 `192.168.68.x` / `192.168.68.1` (or back to DHCP), fix its netplan in-guest, and
-restart anything that had pinned a `.local` upstream. The router VM can stay up
+update the guest's record in `ansible/dns/records.yml` and re-run the router play. The router VM can stay up
 with nothing behind it, or be destroyed with `terraform destroy -target
 proxmox_virtual_environment_vm.router`.

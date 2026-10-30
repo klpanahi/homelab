@@ -36,4 +36,4 @@ immich_instances:
 # library/backups every night) goes to the restic server on the docker VM
 # (homelab2), a different machine. There is no offsite copy: both hosts are in
 # the same building. Credentials live in group_vars/all/vault.yml.
-immich_backup_rest_url: "http://10.10.10.20:8000"
+immich_backup_rest_url: "http://docker.home.arpa:8000"

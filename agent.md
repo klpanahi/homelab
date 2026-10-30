@@ -47,7 +47,6 @@ Workloads run as **Docker containers inside Linux VMs** rather than one VM per s
 **Exception: the two nginx guests and the backup guest are unprivileged LXCs** (`proxmox_virtual_environment_container`, Ubuntu 24.04 system template). They run only nginx, cloudflared, or the backup role's Python/ssh/pg_dump timers, while a VM spent most of its RAM on Ubuntu itself. They are system containers with systemd and sshd, not OCI app containers, so Ansible and party-time's deploy treat them like VMs. LXC-specific details:
 - **No guest agent.** `ansible/inventory/proxmox.yml` reads their address from the `ip=` in `net0`, and connects as `root` (the template has no `ubuntu` user).
 - **DNS.** Proxmox writes a plain `/etc/resolv.conf` into the container. `site.yml` replaces it with the systemd-resolved stub (`/etc/.pve-ignore.resolv.conf` stops Proxmox rewriting it) so the `home.arpa` route works as on the VMs.
-- **avahi.** Unprivileged LXCs share one host uid range, so `site.yml` drops avahi's `rlimit-nproc`, which otherwise stops the second container's avahi-daemon from starting.
 - **cloudflared's UDP buffers** are a host-kernel limit, raised by the `proxmox_host` role.
 
 Native OCI app containers (PVE 9.1+) are tracked on the homelab to-do list. They aren't usable here yet: the hosts run PVE 8.4, the feature is a tech preview, and the bpg provider drops environment variables for OCI containers.
@@ -94,17 +93,18 @@ Consequences worth remembering, with the full runbook in
 
 - **No DHCP server on the lab subnet** — it would share a broadcast domain with
   the Deco's and hand lab leases to household devices. Lab addresses are static.
-- **mDNS crosses the subnet boundary.** avahi advertises whichever address a host
-  actually holds, so moving a VM changes what its `.local` name resolves to for
-  *every* LAN host. nginx pins upstream addresses at parse time, so move
-  `docker` and `nginx-cloudflared` together and restart both nginx VMs after.
+- **Names, not IPs.** Every guest is reached by its `home.arpa` name from
+  `ansible/dns/records.yml`. nginx vhosts `proxy_pass` to a variable so the name
+  is resolved per request (`ansible/tasks/nginx-resolver.yml`); a moved guest
+  only needs its record changed. mDNS (`.local`, avahi) was removed on
+  2026-10-30 after repeatedly breaking.
 - **The Deco static route only works for some devices.** The Deco routes
   `10.10.10.0/24 → 192.168.68.100` (interface LAN), but its hardware path stalls
   hairpinned connections after ~10 packets. Linux and Windows escape by following
   its ICMP redirects; macOS and iOS ignore redirects and stall. So every Mac —
   including the Ansible control machine, whose lab-VM `ansible_host` is a
   `10.10.10.x` address — needs its own route, and iPhones need DHCP option 121.
-- The router VM is excluded from the avahi play; it is addressed by static IP.
+- The router VM is excluded from the common play (it runs the resolver itself).
 
 ---
 
@@ -146,7 +146,7 @@ Never apply from `main` with unmerged changes on top of it, and never merge a ch
   [`docs/internal-dns.md`](docs/internal-dns.md). Browser-facing names are CNAMEs to
   `router`, which forwards 80/443 on its LAN address to nginx-internal in the lab,
   because Apple devices stall on `10.10.10.x` through the Deco. The router's `.100`
-  is the only Deco reservation the lab needs. Still open: retiring mDNS as services move. Pi-hole
+  is the only Deco reservation the lab needs. mDNS was retired on 2026-10-30; `home.arpa` is the only naming. Pi-hole
   is dnsmasq with a UI and can take that role later. The same dnsmasq could serve LAN DHCP
   with option 121, which would give every device (phones included) the lab route —
   but only if the Deco's DHCP server can be turned off

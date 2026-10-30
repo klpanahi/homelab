@@ -90,9 +90,9 @@ site.yml
   hosts: proxmox_hosts     → role proxmox_host (repo-owned): e1000e NIC offloads
                              off; enterprise apt repos commented out,
                              pve-no-subscription.list added (no package changes)
-  hosts: tag_ansible:!tag_router → avahi-daemon/libnss-mdns (mDNS) on every VM
-                             except the router (avahi would publish its lab
-                             address to LAN clients that can't route to it)
+  hosts: tag_ansible:!tag_router → every guest except the router: avahi and
+                             libnss-mdns purged (mDNS retired 2026-10-30);
+                             systemd-resolved routes home.arpa to 10.10.10.1
   hosts: tag_router        → role router (repo-owned): nftables pkg, ufw removed,
                              ip_forward + send_redirects sysctls,
                              /etc/nftables.conf (validated with `nft --check`),
@@ -102,12 +102,14 @@ site.yml
         router_masquerade_to_lan
       ← dns/records.yml (vars_files): router_dns_domain, router_dns_hosts,
         router_dns_aliases — see docs/internal-dns.md
-  hosts: tag_nginx         → role geerlingguy.nginx (install/baseline only)
+  hosts: tag_nginx         → role geerlingguy.nginx (install/baseline only), then
+                             tasks/nginx-resolver.yml (conf.d/resolver.conf)
   hosts: tag_cloudflared   → role cloudflared
   hosts: tag_docker        → roles geerlingguy.docker, restic_server, then installs
                              backup_ssh_public_key into ubuntu's authorized_keys
                              (skipped while that var is blank)
-  hosts: tag_nginx_internal → role geerlingguy.nginx (install/baseline only)
+  hosts: tag_nginx_internal → letsencrypt, geerlingguy.nginx, then
+                             tasks/nginx-resolver.yml and the links page
   hosts: tag_immich        → roles geerlingguy.docker, immich (docs/immich.md)
   hosts: tag_backup        → role backup
       ← group_vars/tag_nginx.yml: nginx_vhosts (port 80, root /var/www/html),
@@ -116,6 +118,13 @@ site.yml
 
 Application-specific vhosts (e.g. party-time's) are NOT applied here — they're
 owned by that application's own repo and deploy playbook.
+
+Every nginx host gets one http-level `resolver 127.0.0.53` in
+`/etc/nginx/conf.d/resolver.conf`. Vhosts reach backends by `home.arpa` name
+through a variable (`set $backend http://immich.home.arpa:2283; proxy_pass
+$backend;`), so nginx resolves per request and still starts when a name doesn't
+resolve at boot. party-time's conf.d maps depend on this resolver; don't add a
+second `resolver` at http level (`nginx -t` rejects the duplicate).
 
 ## Role: `backup` (roles/backup/)
 

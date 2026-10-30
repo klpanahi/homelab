@@ -20,6 +20,10 @@ letsencrypt_certificates:
 # router's port 80/443 forward on 192.168.68.100 (photos.home.arpa is an alias
 # to router in ansible/dns/records.yml). LAN and WireGuard only.
 # Plain HTTP for now: home.arpa can't get a public certificate.
+#
+# Backends are addressed by home.arpa name through a variable, so nginx looks
+# them up per request (tasks/nginx-resolver.yml) and still starts if the name
+# doesn't resolve yet. Don't use a literal IP or name in proxy_pass.
 nginx_vhosts:
   - listen: "80"
     server_name: "photos.home.arpa"
@@ -32,8 +36,9 @@ nginx_vhosts:
       proxy_send_timeout 600s;
       send_timeout 600s;
 
+      set $immich_backend http://immich.home.arpa:2283;
       location / {
-          proxy_pass http://10.10.10.50:2283;
+          proxy_pass $immich_backend;
           proxy_http_version 1.1;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
@@ -44,14 +49,13 @@ nginx_vhosts:
           proxy_redirect off;
       }
 
-  # Home Assistant (VM 200, on the LAN at 192.168.68.60:8123) at
+  # Home Assistant (VM 200, haos.home.arpa on the LAN, port 8123) at
   # https://homeassistant.panahi-systems.com. That name only resolves at home and
   # on WireGuard (router_dns_external_aliases in ansible/dns/records.yml); the
   # cert comes from Let's Encrypt over DNS-01 (letsencrypt_certificates below).
-  # Proxied by IP rather than haos.home.arpa: nginx resolves upstream names once
-  # at startup and refuses to start if one doesn't resolve. HA sees requests
-  # from the router's LAN address (it masquerades lab -> LAN traffic), so its
-  # configuration.yaml trusts 192.168.68.100 as a proxy. See docs/home-assistant.md.
+  # HA sees requests from the router's LAN address (it masquerades lab -> LAN
+  # traffic), so its configuration.yaml trusts 192.168.68.100 as a proxy. See
+  # docs/home-assistant.md.
   - listen: "443 ssl"
     server_name: "homeassistant.panahi-systems.com"
     filename: "homeassistant.conf"
@@ -61,8 +65,9 @@ nginx_vhosts:
       ssl_protocols TLSv1.2 TLSv1.3;
       client_max_body_size 100M;
 
+      set $ha_backend http://haos.home.arpa:8123;
       location / {
-          proxy_pass http://192.168.68.60:8123;
+          proxy_pass $ha_backend;
           proxy_http_version 1.1;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
