@@ -54,7 +54,7 @@ Neither node has a subscription key, so both use the free
 `pve-no-subscription` repo:
 
 - `/etc/apt/sources.list.d/pve-no-subscription.list`:
-  `deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription`
+  `deb http://download.proxmox.com/debian/pve trixie pve-no-subscription`
 - The `deb` lines in `pve-enterprise.list` and `ceph.list` are commented out.
   Without a key, those repos make `apt update` fail. The originals are kept as
   `/root/*.list.bak`.
@@ -75,6 +75,58 @@ pveversion -v | egrep 'pve-manager|pve-cluster|corosync'   # compare across node
 after a node reboot or a VM stop/start. Rebooting a node drops quorum on the
 other node (see above), and rebooting homelab2 takes down Home Assistant and
 the lab router.
+
+### Major upgrade: PVE 8 → 9 (done 2026-10-30)
+
+Both nodes went from 8.4.21 (bookworm) to 9.2.24 (trixie, kernel 7.0) in one
+sitting, with every guest shut down. Neither node can hold the other's guests
+(8 GB RAM each, local-lvm only), so a rolling migration wasn't an option.
+Total downtime was about 20 minutes, most of it the dist-upgrade.
+
+1. `pve8to9 --full` on both nodes. Fix every FAIL first:
+   - `systemd-boot` meta-package installed: both nodes boot through GRUB
+     (`proxmox-boot-tool status` says `proxmox-boot-uuids does not exist`), so
+     `apt remove systemd-boot`.
+   - Removable EFI bootloader present (homelab2): `echo 'grub-efi-amd64
+     grub2/force_efi_extra_removable boolean true' | debconf-set-selections -v -u`,
+     then `apt install --reinstall grub-efi-amd64`.
+   - A custom role uses `VM.Monitor`: that's the unused `Terraform` role (no ACL
+     references it; the token is `root@pam!terraform`). It's fixed after the
+     upgrade, see step 6.
+2. Shut down every guest (`qm shutdown`, `pct shutdown`).
+3. **Point the nodes at public DNS first.** They resolve through the router VM
+   (`192.168.68.100`), which is now off, so `apt update` fails on every mirror
+   and the dist-upgrade silently does nothing (`0 upgraded`). Save
+   `/etc/resolv.conf`, write `nameserver 1.1.1.1`, and restore it before the
+   reboot.
+4. `sed -i 's/bookworm/trixie/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list`
+   (plus `ceph-quincy` → `ceph-squid` in the commented `ceph.list`), then run
+   the upgrade detached so a dropped SSH session can't kill dpkg:
+
+   ```bash
+   systemd-run --unit=pve9-upgrade --setenv=DEBIAN_FRONTEND=noninteractive /bin/sh -c \
+     "apt-get update && apt-get -y -o Dpkg::Options::=--force-confdef \
+      -o Dpkg::Options::=--force-confold dist-upgrade"
+   ```
+
+   Both nodes ran it at the same time; it took about 10 minutes
+   (~590 packages). `dpkg --audit` was clean afterwards.
+5. Restore `/etc/resolv.conf`, reboot both. Every guest has `onboot: 1` and
+   came back by itself; the cluster was quorate on boot.
+6. Drop `VM.Monitor` from the `Terraform` role and add `VM.GuestAgent.Audit`
+   (`pveum role modify Terraform --privs ...`). `terraform plan` showed no
+   changes afterwards.
+
+The `pve-no-subscription` repo in `ansible/roles/proxmox_host` follows
+`ansible_facts['distribution_release']`, so it needed no change. The only
+remaining `pve8to9` FAIL is the missing `intel-microcode` package, which needs
+the `non-free-firmware` component and is optional.
+
+**Clients' DNS after a router outage.** After this upgrade the Mac's DHCP lease
+listed the ISP's resolvers (`209.18.47.62/63`) instead of `192.168.68.100`, so
+`home.arpa` names stopped resolving on it while every service was healthy.
+Check the Deco's DHCP Server → Primary DNS (see
+[internal-dns.md](internal-dns.md)) and renew the lease (Wi-Fi off and on).
 
 ## TLS certificates
 
