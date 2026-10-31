@@ -18,16 +18,17 @@ there is no offsite copy.
 |---|---|
 | Drive | Seagate Portable 1.8 TB, USB (`/dev/disk/by-id/usb-Seagate_Portable_NACA5G8C-0:0`) |
 | Filesystem | one ext4 partition, label `homelab-backup`, UUID `f4cfb007-d29c-4cc4-bac3-21785c26c929`, 0% reserved |
-| Attached to | **homelab2** for now (`proxmox_backup_disk_node` in `group_vars/proxmox_hosts.yml`) |
+| Attached to | **homelab2** (`proxmox_backup_disk_node` in `group_vars/proxmox_hosts.yml`) |
 | Mounted at | `/mnt/backup-hdd`, by UUID with `nofail,x-systemd.device-timeout=10s` |
-| Health | SMART isn't readable through this USB bridge (only the coarse SCSI status, which is OK). A full read-only `badblocks` scan ran after formatting on 2026-10-30; result in `/root/badblocks-homelab-backup.txt` on the disk's node (empty = no bad blocks). |
+| Health | SMART isn't readable through this USB bridge (only the coarse SCSI status, which is OK). A full read-only `badblocks` scan ran after formatting on 2026-10-30; it finished with 0 bad blocks (`/root/badblocks-homelab-backup.txt` on homelab2 is empty). |
 
 Prepared on 2026-10-30: it held an old APFS (Mac) volume, which was wiped with
 the owner's approval.
 
-**It should move to homelab1.** Most workloads (Home Assistant, docker,
-router, both nginx guests) run on homelab2, so with the disk there a homelab2
-failure can take the guests and their backups together. To move it:
+**It stays on homelab2** (owner's decision, 2026-10-30). The trade-off: most
+workloads (Home Assistant, docker, router, both nginx guests) run on homelab2,
+so a homelab2 failure can take those guests and their backups out together.
+If that changes, moving it is:
 
 1. Plug the drive into homelab1.
 2. Set `proxmox_backup_disk_node: homelab1` in `group_vars/proxmox_hosts.yml`.
