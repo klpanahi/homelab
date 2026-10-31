@@ -109,7 +109,7 @@ design and bring-up, and the traps involved in moving an existing VM onto it.
 
 ### 4. (Optional) Internal DNS
 
-The router VM also runs dnsmasq for the `home.arpa` zone. Add names in
+The router VM also runs Pi-hole (ad blocking plus the `home.arpa` zone). Add names in
 [`ansible/dns/records.yml`](ansible/dns/records.yml), apply with
 `ansible-playbook site.yml --limit tag_router`, then set the Deco's DHCP DNS to
 `192.168.68.100` so every device on the Wi-Fi resolves them. See

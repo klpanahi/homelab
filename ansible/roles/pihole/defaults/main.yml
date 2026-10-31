@@ -1,0 +1,33 @@
+# Pi-hole v6 on the router VM: network-wide ad blocking in front of the
+# home.arpa zone. Included by roles/router when router_dns_backend is "pihole";
+# the router role still owns /etc/dnsmasq.d/lab.conf (records, listen
+# addresses) and the firewall. See docs/internal-dns.md#ad-blocking-pi-hole.
+
+# Official installer, run once in unattended mode. It reads the preseeded
+# /etc/pihole/pihole.toml instead of asking questions.
+pihole_installer_url: "https://raw.githubusercontent.com/pi-hole/pi-hole/master/automated%20install/basic-install.sh"
+
+# Admin UI. Pi-hole's built-in web server binds every address; nftables only
+# lets router_dns_allowed_subnets reach it. Not 80/443: those ports on the
+# router's LAN address are the front door to nginx-internal.
+pihole_web_port: "{{ router_pihole_web_port }}"
+
+# Admin UI password. Set vault_pihole_password in group_vars/all/vault.yml.
+pihole_web_password: "{{ vault_pihole_password }}"
+
+# Same upstreams dnsmasq used, so moving to Pi-hole changes nothing but blocking.
+pihole_upstreams: "{{ router_dns_upstreams }}"
+
+pihole_cache_size: 10000
+
+# Blocklists (domain-per-line or adblock format). Added if missing; a list
+# removed from here stays in Pi-hole until it's deleted in the UI (Lists).
+pihole_adlists:
+  # Pi-hole's default list.
+  - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+  # Ads, tracking, telemetry and phishing; few false positives.
+  # https://github.com/hagezi/dns-blocklists#pro
+  - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt
+
+# Exact domains that must never be blocked, for anything a list breaks.
+pihole_allowlist: []

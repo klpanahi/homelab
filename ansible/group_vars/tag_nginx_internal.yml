@@ -87,6 +87,25 @@ nginx_vhosts:
     extra_parameters: |
       return 301 https://homeassistant.panahi-systems.com$request_uri;
 
+  # Pi-hole admin UI on the router (roles/pihole), which serves it on :8080.
+  # Its pages live under /admin/.
+  - listen: "80"
+    server_name: "pihole.home.arpa"
+    filename: "pihole.conf"
+    extra_parameters: |
+      set $pihole_backend http://router.home.arpa:8080;
+      location = / {
+          return 302 /admin/;
+      }
+      location / {
+          proxy_pass $pihole_backend;
+          proxy_http_version 1.1;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+      }
+
   # Links page (ansible/templates/links/index.html.j2), rendered from
   # homepage_links below by site.yml. LAN and WireGuard only.
   - listen: "80"
@@ -107,6 +126,7 @@ homepage_links:
       - { name: Home Assistant, url: "https://homeassistant.panahi-systems.com", note: "Smart home (home and WireGuard only)" }
       - { name: Photos, url: "http://photos.home.arpa", note: "Personal Immich" }
       - { name: Party Time admin, url: "http://partytime.home.arpa", note: "Event admin UI" }
+      - { name: Pi-hole, url: "http://pihole.home.arpa", note: "Ad blocking for the Wi-Fi" }
   - name: Public (Cloudflare tunnel)
     links:
       - { name: Party Time, url: "https://party-time.panahi-systems.com", note: "Invitee site" }

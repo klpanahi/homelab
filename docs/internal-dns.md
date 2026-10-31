@@ -1,17 +1,20 @@
 # Internal DNS (`home.arpa`)
 
-dnsmasq on the router VM answers for a private zone, `home.arpa`, and forwards
-every other name to public resolvers. Once the Deco hands its address out as the
+Pi-hole on the router VM answers for a private zone, `home.arpa`, blocks ad and
+tracker domains, and forwards every other name to public resolvers. (Pi-hole's
+resolver, pihole-FTL, is dnsmasq with blocklists; before 2026-10 the standalone
+dnsmasq service did this job without blocking, and it's still the rollback.) Once the Deco hands its address out as the
 DNS server, every device on the Wi-Fi can open names like
 `https://homelab2.home.arpa:8006` with no per-device setup.
 
 | | |
 |---|---|
-| Resolver | dnsmasq on `router` (VM 204), listening on `192.168.68.100` (LAN) and `10.10.10.1` (lab) |
+| Resolver | Pi-hole (`pihole-FTL`) on `router` (VM 204), listening on `192.168.68.100` (LAN) and `10.10.10.1` (lab). `router_dns_backend` picks Pi-hole or plain dnsmasq |
+| Ad blocking | Blocklists in `pihole_adlists` (`ansible/roles/pihole`); dashboard at `http://pihole.home.arpa` |
 | Zone | `home.arpa`, reserved by RFC 8375 for exactly this. `.local` belongs to mDNS |
 | Records | [`ansible/dns/records.yml`](../ansible/dns/records.yml), the only file you edit |
 | Everything else | Forwarded to `1.1.1.1` and `9.9.9.9` |
-| Config owner | `ansible/roles/router` (dnsmasq, plus port 53 in the nftables input chain) |
+| Config owner | `ansible/roles/router` (`/etc/dnsmasq.d/lab.conf`, plus ports 53 and 8080 in the nftables input chain) and `ansible/roles/pihole` (install, settings, lists) |
 
 It serves DNS only. No DHCP scope is configured, so it never competes with the
 Deco for leases.
@@ -73,6 +76,42 @@ from the internet. `homeassistant.panahi-systems.com` is the first one; see
 addresses. Re-run the router play as the last step of the window that moves the
 VMs onto the lab subnet, not before. Until then the router keeps serving the
 addresses it was last applied with.
+
+## Ad blocking (Pi-hole)
+
+With `router_dns_backend: pihole` (set in `group_vars/tag_router.yml`), the router
+play installs Pi-hole v6 instead of running the standalone dnsmasq service.
+Pi-hole loads the same `/etc/dnsmasq.d/lab.conf` (`misc.etc_dnsmasq_d`), so
+`records.yml` stays the only place to add a name. Pi-hole's own "Local DNS
+records" page isn't used.
+
+| | |
+|---|---|
+| Dashboard | `http://pihole.home.arpa` (nginx-internal → `router:8080`, path `/admin/`). Password: `vault_pihole_password` |
+| Blocklists | `pihole_adlists` in `ansible/roles/pihole/defaults/main.yml`: StevenBlack and Hagezi Pro. Pi-hole refreshes them weekly from its own cron job |
+| Allowlist | `pihole_allowlist` (exact domains). For a quick fix, use the dashboard: Query Log → Allow |
+| Settings Ansible keeps | upstreams, `listeningMode = NONE` (lab.conf sets the listen addresses), domain-needed, bogus-priv, cache size, web port, `etc_dnsmasq_d`. Applied with `pihole-FTL --config` on every run |
+
+`lab.conf` leaves out the options Pi-hole sets itself (`server=`, `no-resolv`,
+`cache-size`, `domain-needed`, `bogus-priv`, `local-ttl`, `log-queries`), because
+dnsmasq refuses some options given twice. It keeps `bind-interfaces` and the
+listen addresses, so Pi-hole, like dnsmasq before it, leaves `127.0.0.53` to
+systemd-resolved.
+
+**What it can't block.** DNS blocking works per domain. Sites and apps that
+serve ads from the same domain as their content can't be filtered this way. The
+main example is Reddit: promoted posts come from `reddit.com` / `gql.reddit.com`
+along with real posts. For those, use a content blocker on the device: uBlock
+Origin in desktop browsers, or AdGuard for Safari / Wipr on iPhone. Third-party
+ads and trackers inside apps and on most other sites are blocked network-wide.
+
+**Something broke after a list update.** Open the dashboard's Query Log, find
+the blocked domain the site or app needed, and allow it. Add it to
+`pihole_allowlist` too if it should survive a rebuild.
+
+Rolling out (or back) briefly takes DNS down. The play stops one service before
+starting the other, and the first install also downloads the blocklists. Lab VMs
+lose `home.arpa` names for that minute, so nginx answers 502 until it's back.
 
 ## Pointing the Wi-Fi at it
 
@@ -184,14 +223,18 @@ inside HA and unrelated to how the homelab names its own machines.
 
 - **The router VM is now the house's DNS.** If it's down, Wi-Fi devices can't
   resolve anything, internet names included. It is `on_boot = true` on homelab2.
-  Debug from the router with `systemctl status dnsmasq` and
-  `journalctl -u dnsmasq`. Set `router_dns_log_queries: true` and re-run the play
-  to log every query.
+  Debug from the router with `systemctl status pihole-FTL` and
+  `journalctl -u pihole-FTL` (or `pihole status`); every query is in the
+  dashboard's Query Log. With the dnsmasq backend: `systemctl status dnsmasq`,
+  `journalctl -u dnsmasq`, and `router_dns_log_queries: true` to log queries.
 - **Fast rollback:** in the Deco app, set DHCP Server DNS back to automatic.
   Devices return to the Deco's resolver as they renew, or right away after a Wi-Fi
   toggle. Nothing else depends on the resolver, so this is safe at any time.
+- **Back to plain dnsmasq (no ad blocking):** set `router_dns_backend: dnsmasq`
+  in `group_vars/tag_router.yml` and re-run the router play. It stops and
+  disables pihole-FTL, unmasks and starts dnsmasq, and renders the full
+  `lab.conf` again. Pi-hole stays installed but idle; `pihole uninstall`
+  removes it.
 - **Remove it from the router:** set `router_dns_enabled: false` in
   `group_vars/tag_router.yml` and re-run the play. That closes port 53. Then
-  `sudo systemctl disable --now dnsmasq` on the router.
-- **Later:** Pi-hole is dnsmasq with a UI and can take over this job. Its
-  "Local DNS records" use the same name → IP shape as `records.yml`.
+  `sudo systemctl disable --now pihole-FTL` (or `dnsmasq`) on the router.

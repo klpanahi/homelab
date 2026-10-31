@@ -53,7 +53,9 @@
 
 # ── Internal DNS ─────────────────────────────────────────────────────────────
 # dnsmasq serves the zone in ansible/dns/records.yml to the LAN and the lab, and
-# forwards everything else upstream. See docs/internal-dns.md.
+# forwards everything else upstream. With router_dns_backend: pihole, Pi-hole's
+# pihole-FTL (dnsmasq plus blocklists) does that job instead, loading the same
+# lab.conf. See docs/internal-dns.md.
 
 - name: Check DNS records
   ansible.builtin.assert:
@@ -73,7 +75,9 @@
   when: router_dns_enabled
 
 # dnsmasq-base is the binary alone (no service), so the config can be written and
-# validated before the dnsmasq service package starts for the first time.
+# validated before either DNS service starts for the first time. Pi-hole runs
+# its own build of dnsmasq (pihole-FTL), but lab.conf is plain dnsmasq syntax,
+# so this binary validates it for both backends.
 - name: Install dnsmasq binary
   ansible.builtin.apt:
     name: dnsmasq-base
@@ -89,6 +93,40 @@
     mode: "0755"
   when: router_dns_enabled
 
+- name: Check which DNS services are installed
+  ansible.builtin.service_facts:
+  when: router_dns_enabled
+
+# Only one of dnsmasq and pihole-FTL can hold port 53. Stopping the old one
+# here starts a short DNS outage that ends when the new one starts below.
+- name: Stop the standalone dnsmasq service (Pi-hole replaces it)
+  ansible.builtin.systemd:
+    name: dnsmasq
+    state: stopped
+    enabled: false
+    masked: true
+  when:
+    - router_dns_enabled
+    - router_dns_backend == 'pihole'
+    - "'dnsmasq.service' in ansible_facts.services"
+
+- name: Stop Pi-hole (standalone dnsmasq replaces it)
+  ansible.builtin.systemd:
+    name: pihole-FTL
+    state: stopped
+    enabled: false
+  when:
+    - router_dns_enabled
+    - router_dns_backend == 'dnsmasq'
+    - "'pihole-FTL.service' in ansible_facts.services"
+
+- name: Install and configure Pi-hole
+  ansible.builtin.include_role:
+    name: pihole
+  when:
+    - router_dns_enabled
+    - router_dns_backend == 'pihole'
+
 - name: Install dnsmasq config and records
   ansible.builtin.template:
     src: dnsmasq-lab.conf.j2
@@ -97,32 +135,42 @@
     group: root
     mode: "0644"
     validate: /usr/sbin/dnsmasq --test --conf-file=%s
-  notify: Restart dnsmasq
+  notify: Restart DNS
   when: router_dns_enabled
 
-- name: Install dnsmasq service
-  ansible.builtin.apt:
-    name: dnsmasq
-    state: present
-  when: router_dns_enabled
+- name: Install the standalone dnsmasq service
+  when:
+    - router_dns_enabled
+    - router_dns_backend == 'dnsmasq'
+  block:
+    # Undo the mask from a Pi-hole rollout before the package tries to start it.
+    - name: Unmask dnsmasq
+      ansible.builtin.systemd:
+        name: dnsmasq
+        masked: false
+      when: "'dnsmasq.service' in ansible_facts.services"
 
-# Ubuntu's dnsmasq unit registers 127.0.0.1 with systemd-resolved as the host's
-# nameserver unless lo is excluded. dnsmasq doesn't listen there (see
-# router_dns_listen_addresses), so without this the router can't resolve names.
-- name: Keep dnsmasq from taking over the router's own resolver
-  ansible.builtin.lineinfile:
-    path: /etc/default/dnsmasq
-    regexp: '^#?\s*DNSMASQ_EXCEPT='
-    line: 'DNSMASQ_EXCEPT="lo"'
-  notify: Restart dnsmasq
-  when: router_dns_enabled
+    - name: Install dnsmasq service
+      ansible.builtin.apt:
+        name: dnsmasq
+        state: present
 
-- name: Apply dnsmasq changes now
+    # Ubuntu's dnsmasq unit registers 127.0.0.1 with systemd-resolved as the host's
+    # nameserver unless lo is excluded. dnsmasq doesn't listen there (see
+    # router_dns_listen_addresses), so without this the router can't resolve names.
+    - name: Keep dnsmasq from taking over the router's own resolver
+      ansible.builtin.lineinfile:
+        path: /etc/default/dnsmasq
+        regexp: '^#?\s*DNSMASQ_EXCEPT='
+        line: 'DNSMASQ_EXCEPT="lo"'
+      notify: Restart DNS
+
+- name: Apply DNS changes now
   ansible.builtin.meta: flush_handlers
 
-- name: Enable and start dnsmasq
+- name: Enable and start the DNS service
   ansible.builtin.systemd:
-    name: dnsmasq
+    name: "{{ _router_dns_service }}"
     enabled: true
     state: started
   when: router_dns_enabled

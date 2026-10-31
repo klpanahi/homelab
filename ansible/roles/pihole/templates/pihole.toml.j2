@@ -1,0 +1,22 @@
+# Preseed for the Pi-hole installer, written only before the first install.
+# Pi-hole rewrites this file itself afterwards (with every option and its
+# comment); roles/pihole sets the options that matter with pihole-FTL --config
+# on every run. See docs/internal-dns.md#ad-blocking-pi-hole.
+
+[dns]
+upstreams = [{% for server in pihole_upstreams %}"{{ server }}"{{ ", " if not loop.last }}{% endfor %}]
+# The router role's /etc/dnsmasq.d/lab.conf sets bind-interfaces and the
+# listen addresses; Pi-hole adds nothing about listening.
+listeningMode = "NONE"
+domainNeeded = true
+bogusPriv = true
+
+[dns.cache]
+size = {{ pihole_cache_size }}
+
+[webserver]
+port = "{{ pihole_web_port }}"
+
+[misc]
+# Load /etc/dnsmasq.d/lab.conf (the home.arpa zone).
+etc_dnsmasq_d = true
