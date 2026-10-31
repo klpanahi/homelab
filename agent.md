@@ -50,7 +50,7 @@ Workloads run as **Docker containers inside Linux VMs** rather than one VM per s
 - **DNS.** Proxmox writes a plain `/etc/resolv.conf` into the container. `site.yml` replaces it with the systemd-resolved stub (`/etc/.pve-ignore.resolv.conf` stops Proxmox rewriting it) so the `home.arpa` route works as on the VMs.
 - **cloudflared's UDP buffers** are a host-kernel limit, raised by the `proxmox_host` role.
 
-Native OCI app containers (PVE 9.1+) are tracked on the homelab to-do list. They aren't usable here yet: the hosts run PVE 8.4, the feature is a tech preview, and the bpg provider drops environment variables for OCI containers.
+Native OCI app containers (PVE 9.1+) are tracked on the homelab to-do list. They aren't usable here yet: the feature is still a tech preview on the hosts' PVE 9.2, and the bpg provider drops environment variables for OCI containers.
 
 ---
 
