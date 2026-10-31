@@ -4,7 +4,7 @@
     name: nftables
     state: restarted
 
-- name: Restart dnsmasq
+- name: Restart DNS
   ansible.builtin.systemd:
-    name: dnsmasq
+    name: "{{ _router_dns_service }}"
     state: restarted

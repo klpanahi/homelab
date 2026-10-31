@@ -1,0 +1,115 @@
+---
+# Installs Pi-hole and keeps its settings, blocklists and allowlist in sync.
+# Included by roles/router (router_dns_backend: pihole) after the standalone
+# dnsmasq service is stopped, so port 53 is free for pihole-FTL.
+
+- name: Check for an existing Pi-hole install
+  ansible.builtin.stat:
+    path: /usr/local/bin/pihole
+  register: pihole_cli
+
+- name: Install Pi-hole
+  when: not pihole_cli.stat.exists
+  block:
+    - name: Create the Pi-hole config directory
+      ansible.builtin.file:
+        path: /etc/pihole
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Preseed the Pi-hole config
+      ansible.builtin.template:
+        src: pihole.toml.j2
+        dest: /etc/pihole/pihole.toml
+        owner: root
+        group: root
+        mode: "0644"
+        # Only the installer reads this. Once FTL owns the file it's never
+        # overwritten; the --config task below keeps it in line.
+        force: false
+
+    - name: Download the Pi-hole installer
+      ansible.builtin.get_url:
+        url: "{{ pihole_installer_url }}"
+        dest: /root/pihole-install.sh
+        mode: "0700"
+
+    - name: Run the Pi-hole installer
+      ansible.builtin.command: bash /root/pihole-install.sh --unattended
+      args:
+        creates: /usr/local/bin/pihole
+      environment:
+        PIHOLE_SKIP_OS_CHECK: "true"
+
+# Earlier Pi-hole installers turned off systemd-resolved's stub listener when
+# they found it on port 53. The router's own lookups go through that stub
+# (dnsmasq and Pi-hole listen only on the router's two addresses), so keep it.
+- name: Keep systemd-resolved's stub listener for the router's own lookups
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d/90-pi-hole-disable-stub-listener.conf
+    state: absent
+  register: pihole_stub_dropin
+
+- name: Restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+  when: pihole_stub_dropin.changed
+
+# pihole-FTL rewrites pihole.toml itself, so it isn't templated after the
+# install. Setting a value it already has is a no-op, hence changed_when: false.
+- name: Apply Pi-hole settings
+  ansible.builtin.command:
+    argv: [pihole-FTL, --config, "{{ item.key }}", "{{ item.value }}"]
+  loop: "{{ _pihole_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  changed_when: false
+  when: not ansible_check_mode
+  vars:
+    _pihole_settings:
+      dns.upstreams: "{{ pihole_upstreams | to_json }}"
+      dns.listeningMode: NONE
+      dns.domainNeeded: "true"
+      dns.bogusPriv: "true"
+      dns.cache.size: "{{ pihole_cache_size }}"
+      webserver.port: "{{ pihole_web_port }}"
+      misc.etc_dnsmasq_d: "true"
+
+- name: Set the Pi-hole admin password
+  ansible.builtin.command:
+    argv: [pihole, setpassword, "{{ pihole_web_password }}"]
+  changed_when: false
+  no_log: true
+  when: not ansible_check_mode
+
+# Lists live in gravity.db. INSERT OR IGNORE keeps this idempotent, and
+# changes() reports 1 only when a row was actually added.
+- name: Add blocklists
+  ansible.builtin.command:
+    argv:
+      - pihole-FTL
+      - sqlite3
+      - /etc/pihole/gravity.db
+      - "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('{{ item }}', 'ansible'); SELECT changes();"
+  loop: "{{ pihole_adlists }}"
+  register: pihole_adlist_insert
+  changed_when: pihole_adlist_insert.stdout | trim == '1'
+  notify: Update Pi-hole gravity
+  when: not ansible_check_mode
+
+# type 0 is an exact-domain allow entry.
+- name: Add allowlisted domains
+  ansible.builtin.command:
+    argv:
+      - pihole-FTL
+      - sqlite3
+      - /etc/pihole/gravity.db
+      - "INSERT OR IGNORE INTO domainlist (type, domain, comment) VALUES (0, '{{ item }}', 'ansible'); SELECT changes();"
+  loop: "{{ pihole_allowlist }}"
+  register: pihole_allow_insert
+  changed_when: pihole_allow_insert.stdout | trim == '1'
+  notify: Update Pi-hole gravity
+  when: not ansible_check_mode

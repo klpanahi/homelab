@@ -1,0 +1,6 @@
+---
+# Downloads every blocklist and rebuilds the block database. Pi-hole's own
+# weekly cron job does the same to pick up list updates.
+- name: Update Pi-hole gravity
+  ansible.builtin.command: pihole -g
+  changed_when: true

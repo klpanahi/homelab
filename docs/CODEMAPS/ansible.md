@@ -23,6 +23,8 @@ ansible/
     tag_router.yml         lab router: lab/LAN subnets, NAT-to-LAN toggle
   roles/router/            REPO-OWNED role — IP forwarding + nftables ruleset
                             + dnsmasq internal DNS (home.arpa)
+  roles/pihole/            REPO-OWNED role — Pi-hole ad blocking on the router,
+                            included by roles/router (router_dns_backend: pihole)
   roles/immich/            REPO-OWNED role — Immich instances, shared ML, restic backup
   roles/restic_server/     REPO-OWNED role — restic REST server on the docker VM
   dns/records.yml          internal DNS records (hosts + aliases) served by the
@@ -100,10 +102,13 @@ site.yml
   hosts: tag_router        → role router (repo-owned): nftables pkg, ufw removed,
                              ip_forward + send_redirects sysctls,
                              /etc/nftables.conf (validated with `nft --check`),
-                             dnsmasq + /etc/dnsmasq.d/lab.conf (validated with
-                             `dnsmasq --test`; port 53 opened for LAN, lab + VPN)
+                             /etc/dnsmasq.d/lab.conf (validated with
+                             `dnsmasq --test`; port 53 opened for LAN, lab + VPN),
+                             served by Pi-hole (includes role pihole: install,
+                             pihole-FTL --config settings, blocklists; UI :8080)
+                             or by the dnsmasq service, per router_dns_backend
       ← group_vars/tag_router.yml: router_lab_subnet, router_lan_subnet, router_vpn_subnets,
-        router_masquerade_to_lan
+        router_masquerade_to_lan, router_dns_backend
       ← dns/records.yml (vars_files): router_dns_domain, router_dns_hosts,
         router_dns_aliases — see docs/internal-dns.md
   hosts: tag_nginx         → role geerlingguy.nginx (install/baseline only), then
