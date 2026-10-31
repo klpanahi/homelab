@@ -13,3 +13,19 @@ proxmox_host_offload_features: gso off gro off tso off tx off rx off
 # Max UDP socket buffer in bytes (net.core.rmem_max/wmem_max). 7500000 is the
 # size quic-go, and so cloudflared, asks for.
 proxmox_host_udp_buffer_max: 7500000
+
+# Nightly vzdump backups to a disk on one node (tasks/backups.yml,
+# docs/backups.md). Empty disables the whole thing.
+proxmox_backup_disk_node: ""
+proxmox_backup_disk_uuid: ""
+proxmox_backup_mount: /mnt/backup-hdd
+# Proxmox storage IDs: local dir on the disk node, NFS on the others.
+proxmox_backup_storage: backup-hdd
+proxmox_backup_storage_nfs: backup-hdd-nfs
+# Every other node mounts the disk over NFS.
+proxmox_backup_nfs_clients: "{{ groups['proxmox_hosts'] | difference([proxmox_backup_disk_node]) }}"
+# systemd calendar format, host time (America/Chicago). The guests' own backup
+# timers (Postgres, HA, Immich) run 03:15-04:15 UTC, i.e. late evening here,
+# so the two never overlap.
+proxmox_backup_schedule: "02:30"
+proxmox_backup_prune: keep-daily=7,keep-weekly=4,keep-monthly=3

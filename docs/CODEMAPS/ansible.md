@@ -89,7 +89,11 @@ entirely. Name any additional source `<name>.proxmox.yml`.
 site.yml
   hosts: proxmox_hosts     → role proxmox_host (repo-owned): e1000e NIC offloads
                              off; enterprise apt repos commented out,
-                             pve-no-subscription.list added (no package changes)
+                             pve-no-subscription.list added; UDP buffer sysctls;
+                             tasks/backups.yml: USB backup disk mount + NFS
+                             export on proxmox_backup_disk_node, storages
+                             backup-hdd / backup-hdd-nfs, nightly vzdump jobs
+                             (docs/backups.md)
   hosts: tag_ansible:!tag_router → every guest except the router: avahi and
                              libnss-mdns purged (mDNS retired 2026-10-30);
                              systemd-resolved routes home.arpa to 10.10.10.1
