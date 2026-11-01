@@ -1,8 +1,10 @@
 ---
+# nft -f swaps the whole ruleset in one transaction (the file starts with
+# flush ruleset), so there's no moment without NAT or the front door.
 - name: Reload nftables
   ansible.builtin.systemd:
     name: nftables
-    state: restarted
+    state: reloaded
 
 - name: Restart DNS
   ansible.builtin.systemd:

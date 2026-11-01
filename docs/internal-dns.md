@@ -109,9 +109,19 @@ ads and trackers inside apps and on most other sites are blocked network-wide.
 the blocked domain the site or app needed, and allow it. Add it to
 `pihole_allowlist` too if it should survive a rebuild.
 
-Rolling out (or back) briefly takes DNS down. The play stops one service before
-starting the other, and the first install also downloads the blocklists. Lab VMs
-lose `home.arpa` names for that minute, so nginx answers 502 until it's back.
+**The switch is a handoff of a few seconds, not an outage.** The whole house
+uses this resolver, so the first run installs Pi-hole with its DNS turned off
+(`dns.port = 0`) and downloads the blocklists while dnsmasq keeps answering.
+Only then does it stop dnsmasq, move Pi-hole to port 53, and check that Pi-hole
+answers a `home.arpa` name and a public one. If the check fails, the play turns
+Pi-hole's DNS back off, starts dnsmasq again and stops with an error. Rolling back
+to `dnsmasq` stops pihole-FTL right before dnsmasq starts, a gap of a second or two.
+
+The router's own `/etc/resolv.conf` points at systemd-resolved's upstream list
+(`/run/systemd/resolve/resolv.conf`) rather than the `127.0.0.53` stub. The
+Pi-hole installer turns the stub off, and the blocklist download needs DNS
+before Pi-hole answers. The installer also renames `/etc/dnsmasq.conf` to
+`.old`; the dnsmasq service doesn't need it (its config is `/etc/dnsmasq.d`).
 
 ## Pointing the Wi-Fi at it
 

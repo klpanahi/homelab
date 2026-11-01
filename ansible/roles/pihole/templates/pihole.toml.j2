@@ -8,6 +8,9 @@ upstreams = [{% for server in pihole_upstreams %}"{{ server }}"{{ ", " if not lo
 # The router role's /etc/dnsmasq.d/lab.conf sets bind-interfaces and the
 # listen addresses; Pi-hole adds nothing about listening.
 listeningMode = "NONE"
+# DNS off for the install: the standalone dnsmasq keeps answering until the
+# handoff in roles/pihole moves Pi-hole to port 53.
+port = 0
 domainNeeded = true
 bogusPriv = true
 

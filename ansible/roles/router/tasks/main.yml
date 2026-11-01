@@ -97,36 +97,9 @@
   ansible.builtin.service_facts:
   when: router_dns_enabled
 
-# Only one of dnsmasq and pihole-FTL can hold port 53. Stopping the old one
-# here starts a short DNS outage that ends when the new one starts below.
-- name: Stop the standalone dnsmasq service (Pi-hole replaces it)
-  ansible.builtin.systemd:
-    name: dnsmasq
-    state: stopped
-    enabled: false
-    masked: true
-  when:
-    - router_dns_enabled
-    - router_dns_backend == 'pihole'
-    - "'dnsmasq.service' in ansible_facts.services"
-
-- name: Stop Pi-hole (standalone dnsmasq replaces it)
-  ansible.builtin.systemd:
-    name: pihole-FTL
-    state: stopped
-    enabled: false
-  when:
-    - router_dns_enabled
-    - router_dns_backend == 'dnsmasq'
-    - "'pihole-FTL.service' in ansible_facts.services"
-
-- name: Install and configure Pi-hole
-  ansible.builtin.include_role:
-    name: pihole
-  when:
-    - router_dns_enabled
-    - router_dns_backend == 'pihole'
-
+# Written before either backend starts, so a fresh pihole-FTL never sees the
+# options it sets itself (it refuses some of them given twice). The running
+# dnsmasq service only reads it at its next restart.
 - name: Install dnsmasq config and records
   ansible.builtin.template:
     src: dnsmasq-lab.conf.j2
@@ -137,6 +110,16 @@
     validate: /usr/sbin/dnsmasq --test --conf-file=%s
   notify: Restart DNS
   when: router_dns_enabled
+
+# The whole house uses this resolver, so the switch from dnsmasq is a handoff
+# of a few seconds, not an outage: Pi-hole is installed and configured with its
+# DNS off, and only then takes port 53 (roles/pihole, "Hand port 53 to Pi-hole").
+- name: Install and configure Pi-hole
+  ansible.builtin.include_role:
+    name: pihole
+  when:
+    - router_dns_enabled
+    - router_dns_backend == 'pihole'
 
 - name: Install the standalone dnsmasq service
   when:
@@ -164,6 +147,18 @@
         regexp: '^#?\s*DNSMASQ_EXCEPT='
         line: 'DNSMASQ_EXCEPT="lo"'
       notify: Restart DNS
+
+# Rollback from Pi-hole. Stopped as late as possible, right before dnsmasq
+# (re)starts below, so the gap is a second or two.
+- name: Stop Pi-hole (standalone dnsmasq replaces it)
+  ansible.builtin.systemd:
+    name: pihole-FTL
+    state: stopped
+    enabled: false
+  when:
+    - router_dns_enabled
+    - router_dns_backend == 'dnsmasq'
+    - "'pihole-FTL.service' in ansible_facts.services"
 
 - name: Apply DNS changes now
   ansible.builtin.meta: flush_handlers
