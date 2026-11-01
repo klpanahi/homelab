@@ -169,3 +169,5 @@
     enabled: true
     state: started
   when: router_dns_enabled
+  # A dry run skips the Pi-hole install, so pihole-FTL may not exist yet.
+  ignore_errors: "{{ ansible_check_mode }}"

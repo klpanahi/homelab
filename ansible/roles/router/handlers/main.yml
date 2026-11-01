@@ -10,3 +10,5 @@
   ansible.builtin.systemd:
     name: "{{ _router_dns_service }}"
     state: restarted
+  # A dry run skips the Pi-hole install, so pihole-FTL may not exist yet.
+  ignore_errors: "{{ ansible_check_mode }}"
