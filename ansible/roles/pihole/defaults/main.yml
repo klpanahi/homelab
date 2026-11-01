@@ -20,14 +20,15 @@ pihole_upstreams: "{{ router_dns_upstreams }}"
 
 pihole_cache_size: 10000
 
-# Blocklists (domain-per-line or adblock format). Added if missing; a list
-# removed from here stays in Pi-hole until it's deleted in the UI (Lists).
+# Blocklists (domain-per-line or adblock format). Lists added here are kept in
+# sync: removing one removes it from Pi-hole. Lists added in the UI are left alone.
 pihole_adlists:
   # Pi-hole's default list.
   - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
-  # Ads, tracking, telemetry and phishing; few false positives.
+  # Ads, tracking, telemetry and phishing; few false positives. Adblock format
+  # (||domain^ blocks subdomains too); Hagezi has no plain-domains Pro file.
   # https://github.com/hagezi/dns-blocklists#pro
-  - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt
+  - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt
 
 # Exact domains that must never be blocked, for anything a list breaks.
 pihole_allowlist: []

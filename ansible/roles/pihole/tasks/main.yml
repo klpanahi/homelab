@@ -22,6 +22,14 @@
     state: link
     force: true
 
+# With resolv.conf off the stub, nothing answers for the router's own name any
+# more (systemd-resolved used to synthesise it), and sudo warns on every call.
+- name: Resolve the router's own hostname locally
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    line: "127.0.1.1 {{ ansible_facts['hostname'] }}"
+
 - name: Check for an existing Pi-hole install
   ansible.builtin.stat:
     path: /usr/local/bin/pihole
@@ -120,6 +128,22 @@
   loop: "{{ pihole_adlists }}"
   register: pihole_adlist_insert
   changed_when: pihole_adlist_insert.stdout | trim == '1'
+  notify: Update Pi-hole gravity
+  when: not ansible_check_mode
+
+# Only rows this role added (comment 'ansible'); lists added in the UI stay.
+- name: Remove blocklists no longer in pihole_adlists
+  ansible.builtin.command:
+    argv:
+      - pihole-FTL
+      - sqlite3
+      - /etc/pihole/gravity.db
+      - >-
+        DELETE FROM adlist WHERE comment = 'ansible'
+        {% if pihole_adlists %}AND address NOT IN ('{{ pihole_adlists | join("', '") }}'){% endif %};
+        SELECT changes();
+  register: pihole_adlist_delete
+  changed_when: pihole_adlist_delete.stdout | trim != '0'
   notify: Update Pi-hole gravity
   when: not ansible_check_mode
 
