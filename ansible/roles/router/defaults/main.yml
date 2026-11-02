@@ -36,6 +36,18 @@ router_ssh_allowed_subnets: "{{ [router_lan_subnet, router_lab_subnet] + router_
 
 router_dns_enabled: true
 
+# What answers on port 53: "dnsmasq" (the standalone service) or "pihole"
+# (Pi-hole: the same dnsmasq zone plus ad blocking, roles/pihole). Switching
+# back to "dnsmasq" and re-running the play is the rollback.
+router_dns_backend: dnsmasq
+
+# Pi-hole's admin UI port, opened in nftables for router_dns_allowed_subnets.
+# Defined here because the firewall is rendered before roles/pihole loads.
+router_pihole_web_port: 8080
+
+# The systemd unit for router_dns_backend.
+_router_dns_service: "{{ 'pihole-FTL' if router_dns_backend == 'pihole' else 'dnsmasq' }}"
+
 # Full names in public domains that dnsmasq answers itself, as CNAMEs to a
 # record in the zone. Set in ansible/dns/records.yml.
 router_dns_external_aliases: []
@@ -62,6 +74,7 @@ router_dns_allowed_subnets: "{{ [router_lan_subnet, router_lab_subnet] + router_
 router_dns_local_ttl: 60
 
 # Log every query to the journal (journalctl -u dnsmasq). Useful while debugging.
+# Standalone dnsmasq only; Pi-hole keeps its own query log (dashboard → Query Log).
 router_dns_log_queries: false
 
 router_dns_domain: home.arpa

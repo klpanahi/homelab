@@ -26,3 +26,9 @@ router_masquerade_to_lan: true
 # nginx-internal's lab address, so no lab VM needs a Deco reservation.
 # Names point here via aliases in ansible/dns/records.yml. See docs/internal-dns.md.
 router_front_door_target: 10.10.10.40
+
+# Pi-hole answers DNS (ad blocking plus the home.arpa zone) instead of the
+# standalone dnsmasq service. Admin UI at http://pihole.home.arpa. Set back to
+# "dnsmasq" and re-run the router play to roll back. See
+# docs/internal-dns.md#ad-blocking-pi-hole.
+router_dns_backend: pihole

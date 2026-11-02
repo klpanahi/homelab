@@ -1,10 +1,14 @@
 ---
+# nft -f swaps the whole ruleset in one transaction (the file starts with
+# flush ruleset), so there's no moment without NAT or the front door.
 - name: Reload nftables
   ansible.builtin.systemd:
     name: nftables
-    state: restarted
+    state: reloaded
 
-- name: Restart dnsmasq
+- name: Restart DNS
   ansible.builtin.systemd:
-    name: dnsmasq
+    name: "{{ _router_dns_service }}"
     state: restarted
+  # A dry run skips the Pi-hole install, so pihole-FTL may not exist yet.
+  ignore_errors: "{{ ansible_check_mode }}"

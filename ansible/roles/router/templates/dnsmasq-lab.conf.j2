@@ -1,6 +1,9 @@
 # MANAGED BY ANSIBLE (ansible/roles/router) — local edits are overwritten.
 # Records come from ansible/dns/records.yml. See docs/internal-dns.md.
 #
+# Loaded by the standalone dnsmasq service, or by Pi-hole's pihole-FTL when
+# router_dns_backend is "pihole".
+#
 # DNS only. No dhcp-range is set, so dnsmasq hands out no leases — a DHCP server
 # on this shared broadcast domain would fight the Deco's (docs/lab-subnet.md).
 
@@ -11,6 +14,12 @@ bind-interfaces
 listen-address={{ addr }}
 {% endfor %}
 
+{% if router_dns_backend == 'pihole' %}
+# Pi-hole (router_dns_backend: pihole) loads this file and sets upstreams,
+# caching, domain-needed and bogus-priv itself from pihole.toml (roles/pihole).
+# dnsmasq rejects some options given twice, so they are left out here.
+
+{% else %}
 # Upstreams are listed here, not taken from /etc/resolv.conf (which points at
 # systemd-resolved), and /etc/hosts is not served.
 no-resolv
@@ -23,14 +32,17 @@ server={{ server }}
 domain-needed
 bogus-priv
 
+{% endif %}
 # Authoritative for the zone: unknown names get NXDOMAIN here instead of being
 # forwarded to the internet.
 local=/{{ router_dns_domain }}/
 
+{% if router_dns_backend != 'pihole' %}
 cache-size=1000
 local-ttl={{ router_dns_local_ttl }}
 {% if router_dns_log_queries %}
 log-queries
+{% endif %}
 {% endif %}
 
 # ── records ──────────────────────────────────────────────────────────────────

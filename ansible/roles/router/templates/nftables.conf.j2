@@ -29,6 +29,12 @@ table inet filter {
 
     # Internal DNS (dnsmasq) for the LAN, the lab and VPN clients. See docs/internal-dns.md.
     ip saddr { {{ router_dns_allowed_subnets | join(', ') }} } meta l4proto { tcp, udp } th dport 53 accept
+{% if router_dns_backend == 'pihole' %}
+
+    # Pi-hole admin UI, from the same subnets (nginx-internal proxies
+    # pihole.home.arpa here from the lab).
+    ip saddr { {{ router_dns_allowed_subnets | join(', ') }} } tcp dport {{ router_pihole_web_port }} accept
+{% endif %}
 {% endif %}
 
     counter comment "input dropped"

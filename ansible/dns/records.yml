@@ -55,6 +55,8 @@ router_dns_aliases:
   - { name: links, target: router }
   # Home Assistant without :8123. nginx-internal proxies it to haos:8123.
   - { name: homeassistant, target: router }
+  # Pi-hole admin UI (ad blocking). nginx-internal proxies it to router:8080.
+  - { name: pihole, target: router }
 
 # Public-domain names that only exist at home and on WireGuard. dnsmasq answers
 # them itself; nothing is published in Cloudflare. They point at the router's

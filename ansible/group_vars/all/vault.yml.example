@@ -52,3 +52,7 @@ vault_restic_server_password: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # Create it scoped to Zone -> DNS -> Edit and Zone -> Zone -> Read on
 # panahi-systems.com only.
 vault_cloudflare_dns_token: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Pi-hole admin UI password on the router (roles/pihole, http://pihole.home.arpa).
+# Generate with: openssl rand -base64 18
+vault_pihole_password: "xxxxxxxxxxxxxxxxxxxxxxxx"

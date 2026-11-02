@@ -1,0 +1,238 @@
+---
+# Installs Pi-hole and keeps its settings, blocklists and allowlist in sync.
+# Included by roles/router (router_dns_backend: pihole). The house keeps using
+# the standalone dnsmasq while all of this runs; Pi-hole only takes port 53 in
+# the handoff at the end, a gap of a few seconds.
+
+# dig, for the handoff check below.
+- name: Install DNS tools
+  ansible.builtin.apt:
+    name: bind9-dnsutils
+    state: present
+
+# The installer turns off systemd-resolved's stub listener (127.0.0.53) and
+# then downloads the blocklists, which would fail with the stub as the router's
+# resolver. Pointing /etc/resolv.conf at resolved's upstream list (the
+# netplan nameserver) keeps the router's own lookups off its own DNS service
+# either way.
+- name: Resolve the router's own lookups without the systemd-resolved stub
+  ansible.builtin.file:
+    src: /run/systemd/resolve/resolv.conf
+    dest: /etc/resolv.conf
+    state: link
+    force: true
+
+# With resolv.conf off the stub, nothing answers for the router's own name any
+# more (systemd-resolved used to synthesise it), and sudo warns on every call.
+- name: Resolve the router's own hostname locally
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    line: "127.0.1.1 {{ ansible_facts['hostname'] }}"
+
+- name: Check for an existing Pi-hole install
+  ansible.builtin.stat:
+    path: /usr/local/bin/pihole
+  register: pihole_cli
+
+- name: Install Pi-hole
+  when: not pihole_cli.stat.exists
+  block:
+    - name: Create the Pi-hole config directory
+      ansible.builtin.file:
+        path: /etc/pihole
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Preseed the Pi-hole config
+      ansible.builtin.template:
+        src: pihole.toml.j2
+        dest: /etc/pihole/pihole.toml
+        owner: root
+        group: root
+        mode: "0644"
+        # Only the installer reads this. Once FTL owns the file it's never
+        # overwritten; the --config task below keeps it in line.
+        force: false
+
+    - name: Download the Pi-hole installer
+      ansible.builtin.get_url:
+        url: "{{ pihole_installer_url }}"
+        dest: /root/pihole-install.sh
+        mode: "0700"
+
+    # The installer's last step is a dialog box, which can exit non-zero with
+    # no terminal. The password line is printed just before it, after
+    # everything else has run (the script is set -e).
+    - name: Run the Pi-hole installer
+      ansible.builtin.command: bash /root/pihole-install.sh --unattended
+      args:
+        creates: /usr/local/bin/pihole
+      register: pihole_install
+      failed_when:
+        - pihole_install.rc != 0
+        - "'Web Interface password' not in pihole_install.stdout"
+
+# Undo the installer turning off systemd-resolved's stub listener. Pi-hole
+# listens only on the router's two addresses, so the stub isn't in its way.
+- name: Keep systemd-resolved's stub listener for the router's own lookups
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d/90-pi-hole-disable-stub-listener.conf
+    state: absent
+  register: pihole_stub_dropin
+
+- name: Restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+  when: pihole_stub_dropin.changed
+
+# pihole-FTL rewrites pihole.toml itself, so it isn't templated after the
+# install. Setting a value it already has is a no-op, hence changed_when: false.
+- name: Apply Pi-hole settings
+  ansible.builtin.command:
+    argv: [pihole-FTL, --config, "{{ item.key }}", "{{ item.value }}"]
+  loop: "{{ _pihole_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  changed_when: false
+  when: not ansible_check_mode
+  vars:
+    _pihole_settings:
+      dns.upstreams: "{{ pihole_upstreams | to_json }}"
+      dns.listeningMode: NONE
+      dns.domainNeeded: "true"
+      dns.bogusPriv: "true"
+      dns.cache.size: "{{ pihole_cache_size }}"
+      webserver.port: "{{ pihole_web_port }}"
+      misc.etc_dnsmasq_d: "true"
+
+- name: Set the Pi-hole admin password
+  ansible.builtin.command:
+    argv: [pihole, setpassword, "{{ pihole_web_password }}"]
+  changed_when: false
+  no_log: true
+  when: not ansible_check_mode
+
+# Lists live in gravity.db. INSERT OR IGNORE keeps this idempotent, and
+# changes() reports 1 only when a row was actually added.
+- name: Add blocklists
+  ansible.builtin.command:
+    argv:
+      - pihole-FTL
+      - sqlite3
+      - /etc/pihole/gravity.db
+      - "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('{{ item }}', 'ansible'); SELECT changes();"
+  loop: "{{ pihole_adlists }}"
+  register: pihole_adlist_insert
+  changed_when: pihole_adlist_insert.stdout | trim == '1'
+  notify: Update Pi-hole gravity
+  when: not ansible_check_mode
+
+# Only rows this role added (comment 'ansible'); lists added in the UI stay.
+- name: Remove blocklists no longer in pihole_adlists
+  ansible.builtin.command:
+    argv:
+      - pihole-FTL
+      - sqlite3
+      - /etc/pihole/gravity.db
+      - >-
+        DELETE FROM adlist WHERE comment = 'ansible'
+        {% if pihole_adlists %}AND address NOT IN ('{{ pihole_adlists | join("', '") }}'){% endif %};
+        SELECT changes();
+  register: pihole_adlist_delete
+  changed_when: pihole_adlist_delete.stdout | trim != '0'
+  notify: Update Pi-hole gravity
+  when: not ansible_check_mode
+
+# type 0 is an exact-domain allow entry.
+- name: Add allowlisted domains
+  ansible.builtin.command:
+    argv:
+      - pihole-FTL
+      - sqlite3
+      - /etc/pihole/gravity.db
+      - "INSERT OR IGNORE INTO domainlist (type, domain, comment) VALUES (0, '{{ item }}', 'ansible'); SELECT changes();"
+  loop: "{{ pihole_allowlist }}"
+  register: pihole_allow_insert
+  changed_when: pihole_allow_insert.stdout | trim == '1'
+  notify: Update Pi-hole gravity
+  when: not ansible_check_mode
+
+# Gravity downloads the lists while DNS is still off on a first install, so
+# Pi-hole blocks from its first answer.
+- name: Apply Pi-hole changes before the handoff
+  ansible.builtin.meta: flush_handlers
+
+- name: Read Pi-hole's DNS port
+  ansible.builtin.command:
+    argv: [pihole-FTL, --config, dns.port]
+  register: pihole_dns_port
+  changed_when: false
+  when: not ansible_check_mode
+
+# Stop dnsmasq, give Pi-hole port 53, and prove it answers both a home.arpa
+# name and a public one. If it doesn't, put dnsmasq back so the house never
+# stays without DNS, and fail the play.
+- name: Hand port 53 to Pi-hole
+  when:
+    - not ansible_check_mode
+    - pihole_dns_port.stdout | trim != '53'
+  block:
+    - name: Stop the standalone dnsmasq service
+      ansible.builtin.systemd:
+        name: dnsmasq
+        state: stopped
+        enabled: false
+        masked: true
+      when: "'dnsmasq.service' in ansible_facts.services"
+
+    - name: Turn on Pi-hole's DNS
+      ansible.builtin.command:
+        argv: [pihole-FTL, --config, dns.port, "53"]
+      changed_when: true
+
+    - name: Restart pihole-FTL on port 53
+      ansible.builtin.systemd:
+        name: pihole-FTL
+        state: restarted
+
+    - name: Check Pi-hole answers home.arpa and public names
+      ansible.builtin.shell: >-
+        dig +short +time=1 +tries=1 @{{ router_dns_listen_addresses[0] }} router.{{ router_dns_domain }} | grep -qx '{{ router_lan_address }}' &&
+        dig +short +time=1 +tries=1 @{{ router_dns_listen_addresses[0] }} example.com | grep -q .
+      register: pihole_answers
+      until: pihole_answers.rc == 0
+      retries: 15
+      delay: 1
+      changed_when: false
+
+  rescue:
+    - name: Turn Pi-hole's DNS back off
+      ansible.builtin.command:
+        argv: [pihole-FTL, --config, dns.port, "0"]
+      changed_when: true
+
+    - name: Restart pihole-FTL without DNS
+      ansible.builtin.systemd:
+        name: pihole-FTL
+        state: restarted
+
+    # lab.conf is already the Pi-hole variant (no server= lines), so dnsmasq
+    # forwards through systemd-resolved until the play is fixed and re-run.
+    - name: Bring the standalone dnsmasq back
+      ansible.builtin.systemd:
+        name: dnsmasq
+        masked: false
+        enabled: true
+        state: started
+      when: "'dnsmasq.service' in ansible_facts.services"
+
+    - name: Report the failed handoff
+      ansible.builtin.fail:
+        msg: >-
+          Pi-hole didn't answer on port 53, so dnsmasq is serving again and
+          Pi-hole's DNS is off. Check journalctl -u pihole-FTL and
+          /var/log/pihole/FTL.log on the router, then re-run the play.
