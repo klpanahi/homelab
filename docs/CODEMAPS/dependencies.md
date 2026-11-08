@@ -37,7 +37,8 @@
   `ansible-galaxy install -r requirements.yml` supplies the galaxy roles
 - SSH agent / key for `root@<proxmox_ssh_host>` before `terraform apply`
 - Proxmox API token with Administrator role on `/` (root@pam!terraform)
-- Vault password file `ansible/.vault_pass` for the inventory token secret
+- `bao` CLI (`brew install openbao`) and a `bao login` token: Terraform (via
+  `scripts/tf`) and Ansible fetch secrets from OpenBao (docs/openbao.md)
 - VM SSH key (`ubuntu` user) for Ansible to reach guests over the LAN
 - `nftables` on the router VM (installed by `roles/router`); ufw removed there
 - A local route on a Mac control machine: `10.10.10.0/24` via `192.168.68.100`

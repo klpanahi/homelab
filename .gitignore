@@ -30,6 +30,7 @@ ansible/roles/*
 !ansible/roles/cloudflared/
 !ansible/roles/letsencrypt/
 !ansible/roles/pihole/
+!ansible/roles/openbao/
 
 # Credentials — never commit. Only *.example files are tracked.
 *.tfvars

@@ -1,11 +1,10 @@
 # Non-secret defaults shared across all hosts.
 #
-# Secrets live in the gitignored, vault-encrypted group_vars/all/vault.yml
-# (e.g. proxmox_token_secret, which the inventory reads via an unvault lookup).
+# Secrets live in OpenBao (docs/openbao.md; see secrets.yml next to this file).
 # Keep this file plaintext / non-secret.
 
-# Public half of vault_backup_ssh_private_key (see vault.yml.example). Not a
-# secret — the private half is what must stay vaulted. site.yml installs this
+# Public half of vault_backup_ssh_private_key (secret/backup in OpenBao). Not a
+# secret — the private half is what must stay in OpenBao. site.yml installs this
 # into the ubuntu user's authorized_keys on the docker VM so the backup VM
 # (on homelab1) can SSH in and run pg_dump.
 #

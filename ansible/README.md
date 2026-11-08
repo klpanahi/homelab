@@ -16,7 +16,7 @@ ansible/
   inventory/hosts.yml      # static inventory: the Proxmox hosts themselves (proxmox_hosts)
   group_vars/
     all/vars.yml           # non-secret shared vars (optional)
-    all/vault.yml          # GITIGNORED — vaulted proxmox_token_secret
+    all/secrets.yml        # where each secret is fetched from OpenBao (no values)
     tag_nginx.yml          # nginx role variables
     tag_router.yml         # lab router/NAT variables
   roles/router/            # repo-owned role (lab router: forwarding + nftables)
@@ -35,24 +35,16 @@ roles written in this repo — `roles/router/` is re-included in `.gitignore`.
    ansible-galaxy install -r requirements.yml
    ```
 
-2. **Create the vault password file** (`.vault_pass`, gitignored):
+2. **Log in to OpenBao** (see [`../docs/openbao.md`](../docs/openbao.md)):
    ```bash
-   printf '%s' 'your-vault-password' > .vault_pass
-   chmod 600 .vault_pass
+   bao login -method=userpass username=<login>
    ```
 
-3. **Create the vaulted secrets file** with the Proxmox token secret (the part
-   after `=` in `terraform.tfvars`' `proxmox_api_token`). See
-   `group_vars/all/vault.yml.example`:
-   ```bash
-   ansible-vault create group_vars/all/vault.yml
-   # add:  proxmox_token_secret: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-   ```
-   The inventory reads this at parse time via an `ansible.builtin.unvault`
-   lookup (inventory plugins load *before* `group_vars`, so a plain
-   `{{ proxmox_token_secret }}` group var would be undefined — the lookup
-   decrypts the file directly instead). Also make sure `user:` and `token_id:`
-   in `inventory/proxmox.yml` match your token's `user@realm` and token id
+3. **Check the inventory's token settings.** The inventory fetches the Proxmox
+   token secret from OpenBao at parse time, directly with a lookup (inventory
+   plugins load *before* `group_vars`, so a plain `{{ proxmox_token_secret }}`
+   group var would be undefined). Make sure `user:` and `token_id:` in
+   `inventory/proxmox.yml` match your token's `user@realm` and token id
    (currently `root@pam` / `terraform`).
 
 4. **Trust the Proxmox cluster CA.** The inventory verifies the API's TLS cert
@@ -103,6 +95,5 @@ ansible-playbook site.yml
   See [`../docs/remote-access.md`](../docs/remote-access.md).
 - The `community.proxmox.proxmox` plugin replaces the deprecated
   `community.general.proxmox`.
-- `group_vars/all/vault.yml` (gitignored) is the single source for the token
-  secret, read by the inventory via the `unvault` lookup. It also holds any
-  future play-level secrets.
+- OpenBao is the single source for secrets. `group_vars/all/secrets.yml` maps
+  each one to a variable; the inventory fetches the Proxmox token itself.

@@ -35,5 +35,5 @@ immich_instances:
 # Every instance's library (photos plus the database dumps Immich writes to
 # library/backups every night) goes to the restic server on the docker VM
 # (homelab2), a different machine. There is no offsite copy: both hosts are in
-# the same building. Credentials live in group_vars/all/vault.yml.
+# the same building. Credentials live in OpenBao (docs/openbao.md).
 immich_backup_rest_url: "http://docker.home.arpa:8000"

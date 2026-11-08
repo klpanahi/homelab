@@ -1,0 +1,9 @@
+#!/bin/sh
+# MANAGED BY ANSIBLE (ansible/roles/openbao) — local edits are overwritten.
+set -e
+live=/etc/letsencrypt/live/{{ openbao_hostname }}
+install -o openbao -g openbao -m 0600 "$live/fullchain.pem" /opt/openbao/tls/tls.crt
+install -o openbao -g openbao -m 0600 "$live/privkey.pem" /opt/openbao/tls/tls.key
+touch /opt/openbao/tls/.letsencrypt
+# SIGHUP re-reads the certificate without sealing. Not running yet on first issue.
+systemctl reload openbao 2>/dev/null || true

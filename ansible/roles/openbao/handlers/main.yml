@@ -1,0 +1,7 @@
+---
+# This seals OpenBao: unseal it afterwards (docs/openbao.md).
+- name: Restart OpenBao
+  ansible.builtin.systemd:
+    name: openbao
+    state: restarted
+    daemon_reload: true

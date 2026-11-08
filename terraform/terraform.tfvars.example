@@ -1,5 +1,5 @@
 proxmox_endpoint  = "https://192.168.68.65:8006"
-proxmox_api_token = "terraform@pve!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+# proxmox_api_token comes from OpenBao: run terraform through scripts/tf (docs/openbao.md).
 proxmox_node      = "homelab2"
 haos_version      = "17.3"   # check https://github.com/home-assistant/operating-system/releases
 

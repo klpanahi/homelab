@@ -238,3 +238,11 @@
   become: true
   roles:
     - backup
+
+# The credential manager on homelab1 (docs/openbao.md). Initializing and
+# unsealing it are manual: scripts/openbao-init.sh.
+- name: Configure OpenBao hosts
+  hosts: tag_openbao
+  become: true
+  roles:
+    - openbao

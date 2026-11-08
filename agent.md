@@ -16,6 +16,7 @@ Architecture, infrastructure, and dependency details live in token-lean codemaps
 Design notes that are not a system map live alongside them:
 
 - [`docs/lab-subnet.md`](docs/lab-subnet.md) — the routed lab subnet: why L3-only, address plan, bring-up, migration traps
+- [`docs/openbao.md`](docs/openbao.md) — the credential manager Terraform and Ansible fetch secrets from: daily use, unsealing, recovery
 - [`docs/backups.md`](docs/backups.md) — nightly vzdump of every guest to the USB backup disk, the guest-level backup timers, restore steps
 
 **After making code changes, update the codemaps** by running `/ecc:update-codemaps` in Claude Code.
@@ -120,7 +121,7 @@ Consequences worth remembering, with the full runbook in
 ## IaC Conventions
 
 - **Terraform**: provisions VMs; VM identity tracked by Proxmox VM ID, not IP
-- **Ansible**: configures VMs post-provision; uses the `community.proxmox.proxmox` dynamic inventory (no static IP files), grouping VMs by Proxmox tags; prefers open-source Galaxy roles over hand-written tasks; secrets in Ansible Vault, never plaintext. (The older `community.general.proxmox` plugin is deprecated.)
+- **Ansible**: configures VMs post-provision; uses the `community.proxmox.proxmox` dynamic inventory (no static IP files), grouping VMs by Proxmox tags; prefers open-source Galaxy roles over hand-written tasks; secrets in OpenBao, never plaintext (`docs/openbao.md`). (The older `community.general.proxmox` plugin is deprecated.)
 - Provisioning order: `terraform apply` → VM boots → guest agent reports IP → `ansible-playbook site.yml`. There is no PBS integration; the backup service (see `docs/CODEMAPS/architecture.md`) runs on its own systemd timers on the dedicated `backup` VM, independent of provisioning — a newly provisioned workload is not automatically backed up.
 
 ---

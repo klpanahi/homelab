@@ -1,0 +1,7 @@
+---
+# Let's Encrypt certificate (roles/letsencrypt, DNS-01 through Cloudflare). The
+# name is answered only by the router's DNS (ansible/dns/records.yml), so
+# OpenBao is reachable at home and over WireGuard only.
+letsencrypt_certificates:
+  - openbao.panahi-systems.com
+letsencrypt_deploy_hook: /usr/local/bin/openbao-cert-deploy

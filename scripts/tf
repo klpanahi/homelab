@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# terraform with the Proxmox API token from OpenBao (docs/openbao.md). The token
+# only feeds the provider, so it stays out of state. Use: scripts/tf plan
+set -euo pipefail
+
+export BAO_ADDR=https://openbao.panahi-systems.com
+secret="$(bao kv get -field=token_secret -mount=secret proxmox)"
+export TF_VAR_proxmox_api_token="root@pam!terraform=$secret"
+unset secret
+
+exec terraform -chdir="$(dirname "$0")/../terraform" "$@"

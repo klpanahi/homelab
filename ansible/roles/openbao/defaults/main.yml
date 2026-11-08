@@ -1,0 +1,7 @@
+---
+# OpenBao credential manager on its own LXC (docs/openbao.md).
+openbao_version: "2.7.2"
+# From the release's checksums.txt; update together with openbao_version.
+openbao_deb_sha256: 42bd0890a8e2060e5f29410ea828ee047aa2de21028045731a0516d5a532928c
+openbao_hostname: openbao.panahi-systems.com
+openbao_port: 443

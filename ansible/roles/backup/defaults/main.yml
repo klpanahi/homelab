@@ -8,7 +8,7 @@ backup_root: /var/backups/homelab
 backup_ha_url: "http://haos.home.arpa:8123"
 
 # Long-lived access token for the HA Core API.
-# Set vault_ha_token in group_vars/all/vault.yml.
+# secret/home-assistant in OpenBao (group_vars/all/secrets.yml).
 backup_ha_token: "{{ vault_ha_token }}"
 
 # The `backup` integration agent that represents HA's own local storage.
@@ -30,7 +30,7 @@ backup_docker_user: ubuntu
 
 # SSH private key used to pull the Postgres dump. Public key must be
 # authorized on backup_docker_user@backup_docker_host.
-# Set vault_backup_ssh_private_key in group_vars/all/vault.yml.
+# secret/backup in OpenBao (group_vars/all/secrets.yml).
 backup_ssh_key_path: /root/.ssh/id_backup
 
 # party-time's Postgres container. The app data lives in the

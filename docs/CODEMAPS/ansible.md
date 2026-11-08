@@ -17,8 +17,7 @@ ansible/
                                  REQUESTS_CA_BUNDLE from the repo-root .envrc
   group_vars/
     all/vars.yml           non-secret shared vars (incl. backup_ssh_public_key)
-    all/vault.yml          GITIGNORED — vaulted secrets
-    all/vault.yml.example  template
+    all/secrets.yml        vault_* vars fetched from OpenBao with the bao CLI (docs/openbao.md)
     tag_nginx.yml          geerlingguy.nginx baseline config
     tag_router.yml         lab router: lab/LAN subnets, NAT-to-LAN toggle
   roles/router/            REPO-OWNED role — IP forwarding + nftables ruleset
@@ -27,10 +26,10 @@ ansible/
                             included by roles/router (router_dns_backend: pihole)
   roles/immich/            REPO-OWNED role — Immich instances, shared ML, restic backup
   roles/restic_server/     REPO-OWNED role — restic REST server on the docker VM
+  roles/openbao/           REPO-OWNED role — OpenBao credential manager (docs/openbao.md)
   dns/records.yml          internal DNS records (hosts + aliases) served by the
                             router's dnsmasq; loaded by the tag_router play
   site.yml                 top-level playbook
-  .vault_pass              GITIGNORED — vault password file
   collections/             GITIGNORED — galaxy installs
   roles/*                  GITIGNORED (galaxy installs) EXCEPT hand-written
                             roles re-included in .gitignore (backup, router);
@@ -59,8 +58,9 @@ Terraform), `compose: ansible_host` = first non-loopback IPv4 from
 `proxmox_agent_interfaces`.
 
 Auth note: inventory plugins load BEFORE group_vars, so token secrets cannot
-be plain `{{ ... }}` group vars — each is pulled via
-`lookup('ansible.builtin.unvault', 'group_vars/all/vault.yml')` at parse time.
+be plain `{{ ... }}` group vars — the Proxmox token is fetched from OpenBao with a
+`bao kv get` pipe lookup at parse time. `any_unparsed_is_failed` in `ansible.cfg`
+makes a failed lookup stop the run instead of silently emptying the inventory.
 
 **Gotcha — inventory plugin filename requirement**: `community.proxmox.proxmox`'s
 `verify_file()` requires the filename to literally **end in** `.proxmox.yml` /
@@ -80,6 +80,7 @@ entirely. Name any additional source `<name>.proxmox.yml`.
 | `tag_router` | router | Proxmox tag `router` |
 | `tag_backup` | backup | Proxmox tag `backup` |
 | `tag_immich` | immich | Proxmox tag `immich` |
+| `tag_openbao` | openbao | Proxmox tag `openbao` |
 | `proxmox_all_qemu` / `proxmox_all_lxc` / `_all_running` | VMs / LXCs (nginx-cloudflared, nginx-internal, backup) | guest type/status |
 | `proxmox_homelab2_qemu` / `proxmox_homelab2_lxc` | homeassistant, docker, router / nginx-cloudflared, nginx-internal | per-node |
 | `proxmox_homelab1_qemu` / `proxmox_homelab1_lxc` | immich / backup | per-node |
@@ -121,6 +122,7 @@ site.yml
                              tasks/nginx-resolver.yml and the links page
   hosts: tag_immich        → roles geerlingguy.docker, immich (docs/immich.md)
   hosts: tag_backup        → role backup
+  hosts: tag_openbao       → role openbao (docs/openbao.md)
       ← group_vars/tag_nginx.yml: nginx_vhosts (port 80, root /var/www/html),
         nginx_remove_default_vhost: true
 ```
