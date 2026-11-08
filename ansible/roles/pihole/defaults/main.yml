@@ -31,4 +31,6 @@ pihole_adlists:
   - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt
 
 # Exact domains that must never be blocked, for anything a list breaks.
-pihole_allowlist: []
+pihole_allowlist:
+  # Amazon's sponsored search results, which the blocklists break.
+  - sponsored-ads.amazon.com
