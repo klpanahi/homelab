@@ -28,8 +28,10 @@ Proxmox Node (homelab1, 192.168.68.75) — second member of the "homelab" cluste
   │                          LAN — see Backup Strategy below)
   ├── VM 301: immich        (Immich instances + shared ML; restic backups to
   │                          the docker VM — docs/immich.md)
-  └── CT 302: openbao       (credential manager for Terraform and Ansible;
+  ├── CT 302: openbao       (credential manager for Terraform and Ansible;
                              nothing reads it at runtime — docs/openbao.md)
+  └── CT 303: gitea         (private git server, LAN and WireGuard only;
+                             SQLite, TLS on the guest — docs/gitea.md)
 ```
 
 homelab1 and homelab2 form a 2-node Proxmox cluster with no QDevice and no shared

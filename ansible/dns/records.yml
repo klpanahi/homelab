@@ -43,6 +43,7 @@ router_dns_hosts:
   - { name: nginx-internal, ip: 10.10.10.40 }
   - { name: immich, ip: 10.10.10.50 }
   - { name: openbao, ip: 10.10.10.60 }
+  - { name: gitea, ip: 10.10.10.70 }
 
 # Websites for the Wi-Fi. Each points at the router; nginx-internal needs a vhost
 # with a matching server_name (party-time's lives in the party-time repo).
@@ -69,3 +70,6 @@ router_dns_external_aliases:
   # OpenBao terminates its own TLS, so this goes straight to the LXC instead of
   # the front door (docs/openbao.md).
   - { name: openbao.panahi-systems.com, target: openbao }
+  # Gitea serves HTTPS and git over SSH from the guest itself, and the front door
+  # only forwards 80/443, so this goes straight to the LXC too (docs/gitea.md).
+  - { name: git.panahi-systems.com, target: gitea }

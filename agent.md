@@ -17,6 +17,7 @@ Design notes that are not a system map live alongside them:
 
 - [`docs/lab-subnet.md`](docs/lab-subnet.md) — the routed lab subnet: why L3-only, address plan, bring-up, migration traps
 - [`docs/openbao.md`](docs/openbao.md) — the credential manager Terraform and Ansible fetch secrets from: daily use, unsealing, recovery
+- [`docs/gitea.md`](docs/gitea.md) — the private git server: daily use, upgrading, restoring
 - [`docs/backups.md`](docs/backups.md) — nightly vzdump of every guest to the USB backup disk, the guest-level backup timers, restore steps
 
 **After making code changes, update the codemaps** by running `/ecc:update-codemaps` in Claude Code.
@@ -34,9 +35,9 @@ Designed for headless, always-on server use with a full REST API (usable with Te
 | Host | RAM | Disk | Runs |
 |---|---|---|---|
 | `homelab2` (`192.168.68.65`) | 8 GB | 500 GB | homeassistant, nginx, docker, nginx-internal, router |
-| `homelab1` (`192.168.68.75`) | 8 GB | 500 GB | backup, immich |
+| `homelab1` (`192.168.68.75`) | 8 GB | 500 GB | backup, immich, openbao, gitea |
 
-- **RAM is the binding constraint, not disk.** homelab2's guests allocate ~7.5 GB (HAOS 4 GB, docker 2 GB, router 1 GB, and the nginx-cloudflared / nginx-internal LXCs 256 MB each — see the `*_memory_mb` defaults in `terraform/variables.tf`), so it is still close to full. Moving the two nginx guests from 1 GB VMs to LXCs on 2026-10-26 freed ~1.5 GB. homelab1 runs the 4 GB immich VM (301) and the backup LXC (300, 512 MB; a 2 GB VM until 2026-10-26), so it has ~3.5 GB left. Neither host has room for another memory-hungry service without a RAM upgrade.
+- **RAM is the binding constraint, not disk.** homelab2's guests allocate ~7.5 GB (HAOS 4 GB, docker 2 GB, router 1 GB, and the nginx-cloudflared / nginx-internal LXCs 256 MB each — see the `*_memory_mb` defaults in `terraform/variables.tf`), so it is still close to full. Moving the two nginx guests from 1 GB VMs to LXCs on 2026-10-26 freed ~1.5 GB. homelab1 runs the 4 GB immich VM (301) and the backup LXC (300, 512 MB; a 2 GB VM until 2026-10-26), and since then the OpenBao (512 MB) and Gitea (768 MB) LXCs; ~2.2 GB was still available on 2026-11-08. Neither host has room for another memory-hungry service without a RAM upgrade.
 - One NIC per host and an unmanaged switch — no VLANs (see "Why the Lab Subnet is Routed" below).
 - The TP-Link Deco is the LAN router and DHCP server, and also runs the **WireGuard VPN server**, the only remote-access path (tunnel `10.5.5.0/24`). It carries web, SSH, Ansible and Terraform traffic alike. See `docs/remote-access.md`.
 

@@ -1,0 +1,73 @@
+; MANAGED BY ANSIBLE (ansible/roles/gitea) — local edits are overwritten.
+APP_NAME = Homelab Git
+RUN_USER = git
+RUN_MODE = prod
+WORK_PATH = /var/lib/gitea
+
+[server]
+PROTOCOL = https
+DOMAIN = {{ gitea_hostname }}
+ROOT_URL = https://{{ gitea_hostname }}/
+HTTP_ADDR = 0.0.0.0
+HTTP_PORT = 443
+CERT_FILE = /etc/gitea/tls/tls.crt
+KEY_FILE = /etc/gitea/tls/tls.key
+REDIRECT_OTHER_PORT = true
+PORT_TO_REDIRECT = 80
+APP_DATA_PATH = /var/lib/gitea/data
+; Git over SSH goes through the guest's own sshd on port 22, as the git user.
+DISABLE_SSH = false
+START_SSH_SERVER = false
+SSH_DOMAIN = {{ gitea_hostname }}
+SSH_PORT = 22
+LFS_START_SERVER = false
+; No gravatar or CDN calls.
+OFFLINE_MODE = true
+
+[database]
+DB_TYPE = sqlite3
+PATH = /var/lib/gitea/data/gitea.db
+SQLITE_JOURNAL_MODE = WAL
+
+[repository]
+ROOT = /var/lib/gitea/repositories
+DEFAULT_PRIVATE = private
+
+[service]
+DISABLE_REGISTRATION = true
+REQUIRE_SIGNIN_VIEW = true
+DEFAULT_KEEP_EMAIL_PRIVATE = true
+ENABLE_NOTIFY_MAIL = false
+
+[security]
+INSTALL_LOCK = true
+SECRET_KEY = {{ gitea_secret_key }}
+INTERNAL_TOKEN = {{ gitea_internal_token }}
+
+[session]
+PROVIDER = db
+COOKIE_SECURE = true
+
+[actions]
+ENABLED = false
+
+[oauth2]
+ENABLED = false
+; Required even when disabled. Without it Gitea tries to generate one and write
+; it back to this read-only file, and refuses to start.
+JWT_SECRET = {{ gitea_jwt_secret }}
+
+[openid]
+ENABLE_OPENID_SIGNIN = false
+ENABLE_OPENID_SIGNUP = false
+
+[mailer]
+ENABLED = false
+
+[cron.update_checker]
+ENABLED = false
+
+[log]
+MODE = console
+LEVEL = info
+ROOT_PATH = /var/lib/gitea/log

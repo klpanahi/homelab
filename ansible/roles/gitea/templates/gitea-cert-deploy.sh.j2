@@ -1,0 +1,9 @@
+#!/bin/sh
+# MANAGED BY ANSIBLE (ansible/roles/gitea) — local edits are overwritten.
+set -e
+live=/etc/letsencrypt/live/{{ gitea_hostname }}
+install -o git -g git -m 0600 "$live/fullchain.pem" /etc/gitea/tls/tls.crt
+install -o git -g git -m 0600 "$live/privkey.pem" /etc/gitea/tls/tls.key
+touch /etc/gitea/tls/.letsencrypt
+# Gitea reads the certificate at startup. Not installed yet on first issue.
+systemctl try-restart gitea 2>/dev/null || true

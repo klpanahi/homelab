@@ -1,0 +1,95 @@
+---
+- name: Install git
+  ansible.builtin.apt:
+    name: git
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# Clones over SSH log in as this user, and Gitea writes its authorized_keys with
+# a forced command. It needs a real shell for that, but has no password.
+- name: Create the git user
+  ansible.builtin.user:
+    name: git
+    system: true
+    shell: /bin/bash
+    home: /home/git
+    create_home: true
+
+- name: Create the data directory
+  ansible.builtin.file:
+    path: /var/lib/gitea
+    state: directory
+    owner: git
+    group: git
+    mode: "0750"
+
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: /etc/gitea
+    state: directory
+    owner: root
+    group: git
+    mode: "0750"
+
+- name: Create the certificate directory
+  ansible.builtin.file:
+    path: /etc/gitea/tls
+    state: directory
+    owner: git
+    group: git
+    mode: "0700"
+
+# Installed at a fixed path, not a versioned one behind a symlink: Gitea writes
+# its resolved path into authorized_keys and every repository's hooks, and an
+# upgrade would leave those pointing at the old version.
+- name: Install the Gitea binary
+  ansible.builtin.get_url:
+    url: "https://github.com/go-gitea/gitea/releases/download/v{{ gitea_version }}/gitea-{{ gitea_version }}-linux-amd64"
+    dest: /usr/local/bin/gitea
+    checksum: "sha256:{{ gitea_binary_sha256 }}"
+    mode: "0755"
+  notify: Restart Gitea
+
+# Gitea reads its certificate as the git user, and /etc/letsencrypt/live is
+# root-only, so certbot's deploy hook copies it over.
+- name: Install the certificate deploy hook
+  ansible.builtin.template:
+    src: gitea-cert-deploy.sh.j2
+    dest: /usr/local/bin/gitea-cert-deploy
+    mode: "0755"
+
+- name: Issue the Let's Encrypt certificate
+  ansible.builtin.include_role:
+    name: letsencrypt
+
+# certbot only runs the hook when it issues, so a certificate from a run that
+# failed partway still needs copying.
+- name: Copy the certificate for Gitea
+  ansible.builtin.command:
+    cmd: /usr/local/bin/gitea-cert-deploy
+    creates: /etc/gitea/tls/.letsencrypt
+
+- name: Install the Gitea configuration
+  ansible.builtin.template:
+    src: app.ini.j2
+    dest: /etc/gitea/app.ini
+    owner: root
+    group: git
+    mode: "0640"
+  no_log: true
+  notify: Restart Gitea
+
+- name: Install the Gitea service
+  ansible.builtin.template:
+    src: gitea.service.j2
+    dest: /etc/systemd/system/gitea.service
+    mode: "0644"
+  notify: Restart Gitea
+
+- name: Start Gitea
+  ansible.builtin.systemd:
+    name: gitea
+    enabled: true
+    state: started
+    daemon_reload: true

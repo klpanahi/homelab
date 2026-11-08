@@ -434,3 +434,47 @@ variable "openbao_nameserver" {
   type        = string
   default     = "8.8.8.8"
 }
+
+# ── gitea LXC (on homelab1) ──────────────────────────────────────────────────
+
+variable "gitea_vm_id" {
+  description = "Proxmox VM ID for the Gitea LXC"
+  type        = number
+  default     = 303
+}
+
+variable "gitea_cpu_cores" {
+  description = "Number of vCPU cores for the Gitea LXC"
+  type        = number
+  default     = 1
+}
+
+variable "gitea_memory_mb" {
+  description = "RAM in MB for the Gitea LXC (swap is set to the same size)"
+  type        = number
+  default     = 768
+}
+
+variable "gitea_disk_gb" {
+  description = "Rootfs size in GB for the Gitea LXC. Repositories, the SQLite database and attachments all live here."
+  type        = number
+  default     = 20
+}
+
+variable "gitea_static_ip" {
+  description = "Static IP with CIDR for the Gitea LXC. Defaults to its lab-subnet address from the allocation table in README.md. Set to \"\" for DHCP."
+  type        = string
+  default     = "10.10.10.70/24"
+}
+
+variable "gitea_gateway" {
+  description = "Gateway for Gitea LXC static IP (required when gitea_static_ip is set). The router VM's lab address."
+  type        = string
+  default     = "10.10.10.1"
+}
+
+variable "gitea_nameserver" {
+  description = "DNS nameserver for the Gitea LXC"
+  type        = string
+  default     = "8.8.8.8"
+}

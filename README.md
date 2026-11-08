@@ -140,7 +140,8 @@ predate it and keep their existing reservations.
 | `nginx-internal` | 203 | homelab2 | `10.10.10.40` | Static (`nginx_internal_static_ip`); LAN clients reach it through the router's port 80/443 forward on `.100` |
 | `immich` | 301 | homelab1 | `10.10.10.50` | Static (`immich_static_ip`); see [docs/immich.md](docs/immich.md) |
 | `openbao` | 302 | homelab1 | `10.10.10.60` | Static (`openbao_static_ip`); see [docs/openbao.md](docs/openbao.md) |
-| *(free)* | | | `10.10.10.61`–`.250` | Next VM: take the next free `.x0`, add a row here |
+| `gitea` | 303 | homelab1 | `10.10.10.70` | Static (`gitea_static_ip`); see [docs/gitea.md](docs/gitea.md) |
+| *(free)* | | | `10.10.10.71`–`.250` | Next VM: take the next free `.x0`, add a row here |
 | `homeassistant` | 200 | homelab2 | `192.168.68.60` | LAN, Deco reservation (MAC `BC:24:11:00:02:00`) — needs mDNS/SSDP on the LAN |
 | `homelab2` | — | — | `192.168.68.65` | LAN, Deco reservation |
 | `homelab1` | — | — | `192.168.68.75` | LAN, Deco reservation |

@@ -1,0 +1,7 @@
+---
+# Let's Encrypt certificate (roles/letsencrypt, DNS-01 through Cloudflare). The
+# name is answered only by the router's DNS (ansible/dns/records.yml), so Gitea
+# is reachable at home and over WireGuard only.
+letsencrypt_certificates:
+  - git.panahi-systems.com
+letsencrypt_deploy_hook: /usr/local/bin/gitea-cert-deploy
