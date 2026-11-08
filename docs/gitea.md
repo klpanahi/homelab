@@ -8,7 +8,7 @@ instead of GitHub. Not exposed to the internet.
 | Guest | CT 303 `gitea` on homelab1, `10.10.10.70` (`terraform/gitea.tf`, `ansible/roles/gitea`) |
 | URL | <https://git.panahi-systems.com> |
 | Git over SSH | `git@git.panahi-systems.com:<owner>/<repo>.git`, port 22 |
-| Reachable from | Macs with the lab route (`docs/lab-subnet.md`) at home and over WireGuard. The name only resolves through the router's DNS. iPhones stall on lab addresses, so the site doesn't work there |
+| Reachable from | Macs with the lab route (`docs/lab-subnet.md`) at home and over WireGuard, and iPhones over WireGuard (checked 2026-11-08). The name only resolves through the router's DNS. iPhones on the home Wi-Fi without the tunnel stall on lab addresses |
 | Certificate | Let's Encrypt over DNS-01 (`roles/letsencrypt`), renewed by certbot |
 | Data | All on the guest under `/var/lib/gitea`: repositories, SQLite database, attachments |
 | Backup | The nightly vzdump job covers the whole guest (`docs/backups.md`). No offsite copy yet |
