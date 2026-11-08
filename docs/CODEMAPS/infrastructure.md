@@ -14,6 +14,7 @@ terraform/
   backup.tf                backup LXC on homelab1 (bpg container resource)
   immich.tf                immich VM on homelab1 (root disk + 200 GB data disk)
   openbao.tf               OpenBao credential manager LXC on homelab1 (docs/openbao.md)
+  gitea.tf                 Gitea private git server LXC on homelab1 (docs/gitea.md)
   router.tf                lab subnet router/NAT VM (two IPs on one vNIC)
   variables.tf             all input variables
   terraform.tfvars         live non-secret values (gitignored); run via scripts/tf,

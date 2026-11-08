@@ -27,6 +27,7 @@ ansible/
   roles/immich/            REPO-OWNED role — Immich instances, shared ML, restic backup
   roles/restic_server/     REPO-OWNED role — restic REST server on the docker VM
   roles/openbao/           REPO-OWNED role — OpenBao credential manager (docs/openbao.md)
+  roles/gitea/             REPO-OWNED role — Gitea private git server (docs/gitea.md)
   dns/records.yml          internal DNS records (hosts + aliases) served by the
                             router's dnsmasq; loaded by the tag_router play
   site.yml                 top-level playbook
@@ -81,6 +82,7 @@ entirely. Name any additional source `<name>.proxmox.yml`.
 | `tag_backup` | backup | Proxmox tag `backup` |
 | `tag_immich` | immich | Proxmox tag `immich` |
 | `tag_openbao` | openbao | Proxmox tag `openbao` |
+| `tag_gitea` | gitea | Proxmox tag `gitea` |
 | `proxmox_all_qemu` / `proxmox_all_lxc` / `_all_running` | VMs / LXCs (nginx-cloudflared, nginx-internal, backup) | guest type/status |
 | `proxmox_homelab2_qemu` / `proxmox_homelab2_lxc` | homeassistant, docker, router / nginx-cloudflared, nginx-internal | per-node |
 | `proxmox_homelab1_qemu` / `proxmox_homelab1_lxc` | immich / backup | per-node |
@@ -123,6 +125,7 @@ site.yml
   hosts: tag_immich        → roles geerlingguy.docker, immich (docs/immich.md)
   hosts: tag_backup        → role backup
   hosts: tag_openbao       → role openbao (docs/openbao.md)
+  hosts: tag_gitea         → role gitea (docs/gitea.md)
       ← group_vars/tag_nginx.yml: nginx_vhosts (port 80, root /var/www/html),
         nginx_remove_default_vhost: true
 ```

@@ -246,3 +246,10 @@
   become: true
   roles:
     - openbao
+
+# The private git server on homelab1 (docs/gitea.md).
+- name: Configure Gitea hosts
+  hosts: tag_gitea
+  become: true
+  roles:
+    - gitea

@@ -122,6 +122,7 @@ homepage_links:
       - { name: homelab1, url: "https://homelab1.home.arpa:8006", note: "Proxmox node (self-signed cert)" }
       - { name: homelab2, url: "https://homelab2.home.arpa:8006", note: "Proxmox node (self-signed cert)" }
       - { name: OpenBao, url: "https://openbao.panahi-systems.com", note: "Secrets (home and WireGuard only)" }
+      - { name: Gitea, url: "https://git.panahi-systems.com", note: "Private git (Macs at home and on WireGuard)" }
   - name: Home
     links:
       - { name: Home Assistant, url: "https://homeassistant.panahi-systems.com", note: "Smart home (home and WireGuard only)" }

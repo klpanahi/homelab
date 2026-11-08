@@ -52,6 +52,7 @@ All under the `secret/` KV v2 store. The `vault_` variables in
 | `restic-server` | `password` | `restic_server`, `immich` roles |
 | `cloudflare` | `dns_token`, `tunnel_token` | `letsencrypt`, `cloudflared` roles |
 | `pihole` | `password` | `pihole` role |
+| `gitea` | `secret_key`, `internal_token`, `jwt_secret` | `gitea` role |
 
 To change a secret, edit it in the UI and re-run the play that uses it. KV v2
 keeps old versions, so a mistake can be undone. It also means a replaced value

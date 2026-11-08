@@ -1,0 +1,11 @@
+---
+# Gitea private git server on its own LXC (docs/gitea.md).
+gitea_version: "28.3.0"
+# From the release's gitea-<version>-linux-amd64.sha256; update together with
+# gitea_version.
+gitea_binary_sha256: 5f834e8f04986f3b9206cf14743b5a6e6996ceddc238dac6409866ebda2a0686
+gitea_hostname: git.panahi-systems.com
+# Fields of secret/gitea in OpenBao (group_vars/all/secrets.yml).
+gitea_secret_key: "{{ vault_gitea_secrets.secret_key }}"
+gitea_internal_token: "{{ vault_gitea_secrets.internal_token }}"
+gitea_jwt_secret: "{{ vault_gitea_secrets.jwt_secret }}"
