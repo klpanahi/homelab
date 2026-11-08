@@ -243,5 +243,4 @@ Leftovers from the run:
 
 The join replaces homelab1's user and token database with the cluster's.
 homelab1's old standalone token no longer exists, so remove
-`proxmox_homelab1_api_token` from `terraform.tfvars` and
-`proxmox_token_secret_homelab1` from the Ansible vault.
+`proxmox_homelab1_api_token` from `terraform.tfvars` and its secret from OpenBao.

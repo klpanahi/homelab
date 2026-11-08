@@ -12,7 +12,7 @@ pihole_installer_url: "https://raw.githubusercontent.com/pi-hole/pi-hole/master/
 # router's LAN address are the front door to nginx-internal.
 pihole_web_port: "{{ router_pihole_web_port }}"
 
-# Admin UI password. Set vault_pihole_password in group_vars/all/vault.yml.
+# Admin UI password. secret/pihole in OpenBao (group_vars/all/secrets.yml).
 pihole_web_password: "{{ vault_pihole_password }}"
 
 # Same upstreams dnsmasq used, so moving to Pi-hole changes nothing but blocking.

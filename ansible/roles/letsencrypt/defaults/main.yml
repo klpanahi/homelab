@@ -4,7 +4,7 @@
 # Used for LAN/WireGuard-only names in public domains (docs/home-assistant.md).
 
 # Cloudflare API token scoped to DNS Write + Zone Read on the zone(s) below.
-# Set vault_cloudflare_dns_token in group_vars/all/vault.yml.
+# secret/cloudflare in OpenBao (group_vars/all/secrets.yml).
 letsencrypt_cloudflare_token: "{{ vault_cloudflare_dns_token }}"
 
 # One certificate per entry, stored as /etc/letsencrypt/live/<name>/.

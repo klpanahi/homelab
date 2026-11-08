@@ -390,3 +390,47 @@ variable "router_nameserver" {
   type        = string
   default     = "8.8.8.8"
 }
+
+# ── openbao LXC (on homelab1) ────────────────────────────────────────────────
+
+variable "openbao_vm_id" {
+  description = "Proxmox VM ID for the OpenBao LXC"
+  type        = number
+  default     = 302
+}
+
+variable "openbao_cpu_cores" {
+  description = "Number of vCPU cores for the OpenBao LXC"
+  type        = number
+  default     = 1
+}
+
+variable "openbao_memory_mb" {
+  description = "RAM in MB for the OpenBao LXC (swap is set to the same size; the service itself runs with MemorySwapMax=0)"
+  type        = number
+  default     = 512
+}
+
+variable "openbao_disk_gb" {
+  description = "Rootfs size in GB for the OpenBao LXC"
+  type        = number
+  default     = 8
+}
+
+variable "openbao_static_ip" {
+  description = "Static IP with CIDR for the OpenBao LXC. Defaults to its lab-subnet address from the allocation table in README.md. Set to \"\" for DHCP."
+  type        = string
+  default     = "10.10.10.60/24"
+}
+
+variable "openbao_gateway" {
+  description = "Gateway for OpenBao LXC static IP (required when openbao_static_ip is set). The router VM's lab address."
+  type        = string
+  default     = "10.10.10.1"
+}
+
+variable "openbao_nameserver" {
+  description = "DNS nameserver for the OpenBao LXC"
+  type        = string
+  default     = "8.8.8.8"
+}

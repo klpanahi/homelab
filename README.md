@@ -65,11 +65,13 @@ commands below; see "Change Workflow" in [`agent.md`](agent.md).
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# Fill in proxmox_api_token and haos_version in terraform.tfvars
+# Fill in haos_version in terraform.tfvars. Secrets come from OpenBao: docs/openbao.md
 
 terraform init
-terraform plan
-terraform apply   # requires SSH agent loaded (see Prerequisite 4)
+cd ..
+bao login -method=userpass username=<login>
+scripts/tf plan
+scripts/tf apply   # requires SSH agent loaded (see Prerequisite 4)
 ```
 
 ### 2. Configure VMs (Ansible)
@@ -82,10 +84,8 @@ configures with the `geerlingguy.nginx` role.
 cd ansible
 ansible-galaxy install -r requirements.yml   # community.proxmox + geerlingguy.nginx
 
-# Vault password file, then the vaulted Proxmox token secret (the inventory
-# reads it via an unvault lookup — see ansible/README.md)
-printf '%s' 'your-vault-password' > .vault_pass && chmod 600 .vault_pass
-ansible-vault create group_vars/all/vault.yml   # add proxmox_token_secret
+# Secrets, including the inventory's Proxmox token, come from OpenBao with your
+# bao login token (docs/openbao.md).
 
 ansible-inventory --graph    # nginx VM should appear under tag_nginx
 ansible-playbook site.yml
@@ -139,7 +139,8 @@ predate it and keep their existing reservations.
 | `backup` | 300 | homelab1 | `10.10.10.30` | Static (`backup_static_ip`) |
 | `nginx-internal` | 203 | homelab2 | `10.10.10.40` | Static (`nginx_internal_static_ip`); LAN clients reach it through the router's port 80/443 forward on `.100` |
 | `immich` | 301 | homelab1 | `10.10.10.50` | Static (`immich_static_ip`); see [docs/immich.md](docs/immich.md) |
-| *(free)* | | | `10.10.10.51`–`.250` | Next VM: take the next free `.x0`, add a row here |
+| `openbao` | 302 | homelab1 | `10.10.10.60` | Static (`openbao_static_ip`); see [docs/openbao.md](docs/openbao.md) |
+| *(free)* | | | `10.10.10.61`–`.250` | Next VM: take the next free `.x0`, add a row here |
 | `homeassistant` | 200 | homelab2 | `192.168.68.60` | LAN, Deco reservation (MAC `BC:24:11:00:02:00`) — needs mDNS/SSDP on the LAN |
 | `homelab2` | — | — | `192.168.68.65` | LAN, Deco reservation |
 | `homelab1` | — | — | `192.168.68.75` | LAN, Deco reservation |

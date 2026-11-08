@@ -26,8 +26,10 @@ Proxmox Node (homelab1, 192.168.68.75) — second member of the "homelab" cluste
   ├── CT 300: backup        (unprivileged Ubuntu 24.04 LXC, bpg container
   │                          resource; pulls backups from homelab2 over the
   │                          LAN — see Backup Strategy below)
-  └── VM 301: immich        (Immich instances + shared ML; restic backups to
-                             the docker VM — docs/immich.md)
+  ├── VM 301: immich        (Immich instances + shared ML; restic backups to
+  │                          the docker VM — docs/immich.md)
+  └── CT 302: openbao       (credential manager for Terraform and Ansible;
+                             nothing reads it at runtime — docs/openbao.md)
 ```
 
 homelab1 and homelab2 form a 2-node Proxmox cluster with no QDevice and no shared

@@ -1,0 +1,66 @@
+---
+- name: Download the OpenBao package
+  ansible.builtin.get_url:
+    url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_version }}/openbao_{{ openbao_version }}_linux_amd64.deb"
+    dest: "/var/cache/openbao_{{ openbao_version }}_linux_amd64.deb"
+    checksum: "sha256:{{ openbao_deb_sha256 }}"
+    mode: "0644"
+
+- name: Install OpenBao
+  ansible.builtin.apt:
+    deb: "/var/cache/openbao_{{ openbao_version }}_linux_amd64.deb"
+
+# The package's service reads its certificate as the openbao user, and
+# /etc/letsencrypt/live is root-only, so certbot's deploy hook copies it over.
+# The hook reloads rather than restarts: a restart would seal OpenBao, and
+# unsealing is manual.
+- name: Install the certificate deploy hook
+  ansible.builtin.template:
+    src: openbao-cert-deploy.sh.j2
+    dest: /usr/local/bin/openbao-cert-deploy
+    mode: "0755"
+
+- name: Issue the Let's Encrypt certificate
+  ansible.builtin.include_role:
+    name: letsencrypt
+
+# The package generates a self-signed pair at install time. The marker makes
+# this run once, after which the deploy hook keeps the files current.
+- name: Replace the package's self-signed certificate
+  ansible.builtin.command:
+    cmd: /usr/local/bin/openbao-cert-deploy
+    creates: /opt/openbao/tls/.letsencrypt
+
+# The package's unit drops every capability except CAP_SYSLOG, so the openbao
+# user can't bind a low port without this.
+- name: Create the OpenBao service override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/openbao.service.d
+    state: directory
+    mode: "0755"
+
+- name: Let OpenBao bind its port
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/openbao.service.d/bind-port.conf
+    content: |
+      # MANAGED BY ANSIBLE (ansible/roles/openbao) — local edits are overwritten.
+      [Service]
+      AmbientCapabilities=CAP_NET_BIND_SERVICE
+      CapabilityBoundingSet=CAP_SYSLOG CAP_NET_BIND_SERVICE
+    mode: "0644"
+  notify: Restart OpenBao
+
+- name: Install the OpenBao configuration
+  ansible.builtin.template:
+    src: openbao.hcl.j2
+    dest: /etc/openbao/openbao.hcl
+    owner: openbao
+    group: openbao
+    mode: "0640"
+  notify: Restart OpenBao
+
+- name: Start OpenBao
+  ansible.builtin.systemd:
+    name: openbao
+    enabled: true
+    state: started

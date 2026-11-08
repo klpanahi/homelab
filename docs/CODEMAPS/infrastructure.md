@@ -13,9 +13,11 @@ terraform/
   docker.tf                Docker host VM
   backup.tf                backup LXC on homelab1 (bpg container resource)
   immich.tf                immich VM on homelab1 (root disk + 200 GB data disk)
+  openbao.tf               OpenBao credential manager LXC on homelab1 (docs/openbao.md)
   router.tf                lab subnet router/NAT VM (two IPs on one vNIC)
   variables.tf             all input variables
-  terraform.tfvars         live values (gitignored)
+  terraform.tfvars         live non-secret values (gitignored); run via scripts/tf,
+                           which supplies proxmox_api_token from OpenBao
   terraform.tfvars.example documented example values
   .terraform.lock.hcl      provider lock file
 ```

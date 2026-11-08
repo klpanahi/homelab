@@ -1,0 +1,14 @@
+# MANAGED BY ANSIBLE (ansible/roles/openbao) — local edits are overwritten.
+ui = true
+
+api_addr = "https://{{ openbao_hostname }}"
+
+storage "pebbledb" {
+  path = "/opt/openbao/data"
+}
+
+listener "tcp" {
+  address       = "0.0.0.0:{{ openbao_port }}"
+  tls_cert_file = "/opt/openbao/tls/tls.crt"
+  tls_key_file  = "/opt/openbao/tls/tls.key"
+}

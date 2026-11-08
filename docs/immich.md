@@ -45,10 +45,9 @@ to upload to the public instance from outside the house.
 
 ## Bring-up
 
-1. **Vault secrets.** Add the Immich block from
-   `ansible/group_vars/all/vault.yml.example` to `group_vars/all/vault.yml`
-   (`ansible-vault edit`). Keep a copy of `vault_immich_restic_password` in a
-   password manager: without it the backups can't be read.
+1. **Secrets.** Set `immich-db`, `immich-restic` and `restic-server` in OpenBao
+   (`docs/openbao.md`). Keep a copy of the restic password in a password manager:
+   without it the backups can't be read.
 2. **Terraform.** `terraform apply` creates the immich VM and adds the 100 GB
    restic disk to the docker VM (`docker_restic_disk_gb`). Check the plan first:
    the docker VM must show as updated in place, not replaced.

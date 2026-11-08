@@ -9,16 +9,14 @@
 # the QEMU guest agent reports — no static IP files to maintain.
 #
 # Credentials reuse the same Proxmox API token Terraform uses (see
-# terraform.tfvars' proxmox_api_token — currently root@pam!terraform). The user
+# scripts/tf, which builds proxmox_api_token as root@pam!terraform). The user
 # and token_id below MUST match that token's user@realm and token id, or the API
 # returns 401 "no such user".
 #
-# The token secret is read from the vaulted group_vars/all/vault.yml via an
-# ansible.builtin.unvault lookup (decrypted at parse time via .vault_pass).
-# A plain "{{ proxmox_token_secret }}" group var would be undefined here because
-# inventory plugins are evaluated BEFORE group_vars are loaded; the lookup reads
-# and decrypts the file directly instead.
-#
+# The token secret is read from OpenBao with the operator's `bao login` token
+# (docs/openbao.md). It's fetched here directly because inventory plugins are
+# evaluated BEFORE group_vars are loaded. A locked OpenBao or an expired login
+# fails the run: see any_unparsed_is_failed in ansible.cfg.
 # The API cert is verified against the cluster CA (ansible/files/pve-root-ca.pem).
 # The plugin has no CA-path option, so Python's requests library finds that CA
 # through REQUESTS_CA_BUNDLE, which the repo's .envrc sets (see docs/cluster.md,
@@ -29,7 +27,7 @@ plugin: community.proxmox.proxmox
 url: https://192.168.68.65:8006
 user: root@pam
 token_id: terraform
-token_secret: "{{ (lookup('ansible.builtin.unvault', 'group_vars/all/vault.yml') | ansible.builtin.from_yaml).proxmox_token_secret }}"
+token_secret: "{{ lookup('ansible.builtin.pipe', 'BAO_ADDR=https://openbao.panahi-systems.com bao kv get -field=token_secret -mount=secret proxmox') }}"
 validate_certs: true
 
 # want_facts pulls per-VM config + guest-agent data so proxmox_tags_parsed and
