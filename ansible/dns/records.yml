@@ -50,6 +50,8 @@ router_dns_hosts:
 router_dns_aliases:
   # party-time admin UI
   - { name: partytime, target: router }
+  # Trip planner webapp (trip-planning repo, deploy/nginx/trips.conf). LAN and WireGuard only.
+  - { name: trips, target: router }
   # Personal Immich (docs/immich.md). LAN and WireGuard only.
   - { name: photos, target: router }
   # Links page listing every homelab URL (homepage_links in

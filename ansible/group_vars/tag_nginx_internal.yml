@@ -128,6 +128,7 @@ homepage_links:
       - { name: Home Assistant, url: "https://homeassistant.panahi-systems.com", note: "Smart home (home and WireGuard only)" }
       - { name: Photos, url: "http://photos.home.arpa", note: "Personal Immich" }
       - { name: Party Time admin, url: "http://partytime.home.arpa", note: "Event admin UI" }
+      - { name: Trips, url: "http://trips.home.arpa", note: "Trip planner & time off" }
       - { name: Pi-hole, url: "http://pihole.home.arpa", note: "Ad blocking for the Wi-Fi" }
   - name: Public (Cloudflare tunnel)
     links:
