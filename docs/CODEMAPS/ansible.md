@@ -155,7 +155,7 @@ for the design rationale (pull model, no offsite copy, no encryption).
 | `backup_ha_create_timeout` | `1800` (seconds) | how long to wait for HA to finish generating a backup |
 | `backup_docker_host` / `_user` | `docker.home.arpa` / `ubuntu` | SSH target for pg_dump |
 | `backup_ssh_key_path` | `/root/.ssh/id_backup` | private half of `vault_backup_ssh_private_key`, installed by this role |
-| `backup_pg_container` / `_database` / `_schema` | `party-time-db` / `party_time` / `party_time` | app data lives in the `party_time` schema, NOT `public` |
+| `backup_pg_targets` | `party_time` (container `party-time-db`, schema `party_time` — app data is NOT in `public`), `trips` (container `trips-db`, whole database) | one dump per entry per run; each entry also names its app's secrets file (`env_file`) and backup file prefix (`env_prefix`) |
 | `backup_ha_retention_days` / `backup_pg_retention_days` | `14` / `30` | local pruning |
 | `backup_ha_oncalendar` / `backup_pg_oncalendar` | `03:15:00` / `03:45:00` daily | systemd `OnCalendar` |
 
@@ -196,13 +196,14 @@ Scripts (templates/):
   categorized stderr message (`auth` / `create` / `download` / `empty`) on
   any failure. Requires the `python3-websockets` apt package (Ubuntu 24.04
   noble has it).
-- `backup-postgres.sh.j2` — SSHes to `backup_docker_host` and runs
-  `docker exec party-time-db sh -c 'pg_dump -U "$POSTGRES_USER" -d party_time -n party_time -Fc'`
+- `backup-postgres.sh.j2` — for each `backup_pg_targets` entry, SSHes to `backup_docker_host` and runs
+  `docker exec <container> sh -c 'pg_dump -U "$POSTGRES_USER" -d <database> [-n <schema>] -Fc'`
   (single-quoted so `$POSTGRES_USER` expands only inside the container — no DB
-  credentials are stored anywhere in this repo), verifies the dump with
-  `pg_restore --list`, then best-effort `scp`s `/opt/party-time/.env.prod`
-  (warns, doesn't fail, if missing/unreachable), prunes past retention, writes
-  `{{ backup_root }}/LAST_SUCCESS_postgres`.
+  credentials are stored anywhere in this repo) into `postgres/<name>-<ts>.dump`, verifies it with
+  `pg_restore --list`, then best-effort `scp`s the entry's `env_file` to `postgres/env/<env_prefix>-<ts>`
+  (warns, doesn't fail, if missing/unreachable). A failing entry doesn't stop the others; the run exits
+  non-zero and only writes `{{ backup_root }}/LAST_SUCCESS_postgres` when every entry succeeded. Prunes
+  past retention. Jinja note: the template avoids bash's `${#array[@]}` (its `{#` opens a Jinja comment).
 
 Neither script's failure is currently alerted on anywhere — the
 `LAST_SUCCESS_*` marker files exist but nothing polls them.

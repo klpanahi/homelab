@@ -33,12 +33,32 @@ backup_docker_user: ubuntu
 # secret/backup in OpenBao (group_vars/all/secrets.yml).
 backup_ssh_key_path: /root/.ssh/id_backup
 
-# party-time's Postgres container. The app data lives in the
-# "party_time" schema, not "public" -- pg_dump must be told this
-# explicitly or the dump will silently contain nothing.
-backup_pg_container: party-time-db
-backup_pg_database: party_time
-backup_pg_schema: party_time
+# Postgres databases on the docker VM to pull, one dump each per run.
+#   name       file prefix: <name>-<timestamp>.dump in {{ backup_root }}/postgres
+#   container  the postgres container (POSTGRES_USER is read inside it)
+#   database   database to dump
+#   schema     dump only this schema; "" dumps the whole database
+#   env_file   the app's secrets file on the VM, copied alongside (best-effort)
+#              into postgres/env/<env_prefix>-<timestamp>; without it a dump
+#              can't be restored into a working app
+# party-time's app data lives in the "party_time" schema, not "public" --
+# pg_dump must be told this explicitly or the dump will silently contain
+# nothing. Its file names are unchanged from before this list existed.
+backup_pg_targets:
+  - name: party_time
+    container: party-time-db
+    database: party_time
+    schema: party_time
+    env_file: /opt/party-time/.env.prod
+    env_prefix: env.prod
+  # Trip planner webapp (trip-planning repo, deploy/docker-compose.prod.yml).
+  # Its tables are in "public".
+  - name: trips
+    container: trips-db
+    database: trips
+    schema: ""
+    env_file: /opt/trips/.env.prod
+    env_prefix: trips-env.prod
 
 # Retention, in days, for locally-pruned backup copies.
 backup_ha_retention_days: 14

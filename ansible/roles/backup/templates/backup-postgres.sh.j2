@@ -1,77 +1,92 @@
 #!/usr/bin/env bash
 # Managed by Ansible (backup role). Local edits will be overwritten.
 #
-# Pulls a logical pg_dump of the party_time database from the docker VM
-# over SSH + docker exec (Postgres publishes no port, so there is no
-# direct TCP path). No Postgres credentials live in this repo: the
+# Pulls a logical pg_dump of each database in backup_pg_targets from the
+# docker VM over SSH + docker exec (Postgres publishes no port, so there is
+# no direct TCP path). No Postgres credentials live in this repo: each
 # container already has POSTGRES_USER in its own environment, and the
-# remote command below is quoted so that "$POSTGRES_USER" is expanded
-# by the shell *inside the container*, not by this script and not by
-# the shell on the docker VM. The password never leaves VM 202.
+# remote command below is quoted so that "$POSTGRES_USER" is expanded by
+# the shell *inside the container*, not by this script and not by the shell
+# on the docker VM. The password never leaves VM 202.
+#
+# One target failing does not stop the others; the run still exits non-zero
+# and LAST_SUCCESS_postgres is only written when every target succeeded.
 set -euo pipefail
 
 BACKUP_DIR="{{ backup_root }}/postgres"
 ENV_DIR="${BACKUP_DIR}/env"
 RETENTION_DAYS="{{ backup_pg_retention_days }}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-OUT="${BACKUP_DIR}/{{ backup_pg_database }}-${TIMESTAMP}.dump"
-ENV_OUT="${ENV_DIR}/env.prod-${TIMESTAMP}"
+SSH_OPTS=(-i "{{ backup_ssh_key_path }}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
+REMOTE="{{ backup_docker_user }}@{{ backup_docker_host }}"
 
+PARTS=()
 cleanup() {
-  rm -f "${OUT}.part" "${ENV_OUT}.part"
+  # Array checks use [[ -n "${arr[*]-}" ]]: the usual length form starts a Jinja comment.
+  if [[ -n "${PARTS[*]-}" ]]; then rm -f "${PARTS[@]}"; fi
 }
 trap cleanup EXIT
 
-# NOTE: the single quotes around the pg_dump invocation are load-bearing.
-# They keep "$POSTGRES_USER" from being touched by Jinja, by this
-# script's local bash, and by the remote login shell on the docker VM --
-# it is only expanded by the "sh -c" running inside the container,
-# where POSTGRES_USER actually lives.
-REMOTE_CMD="docker exec {{ backup_pg_container }} sh -c 'pg_dump -U \"\$POSTGRES_USER\" -d {{ backup_pg_database }} -n {{ backup_pg_schema }} -Fc'"
+# backup_one <name> <container> <database> <schema or ""> <env_file> <env_prefix>
+backup_one() {
+  local name="$1" container="$2" database="$3" schema="$4" env_file="$5" env_prefix="$6"
+  local out="${BACKUP_DIR}/${name}-${TIMESTAMP}.dump"
+  local env_out="${ENV_DIR}/${env_prefix}-${TIMESTAMP}"
+  local schema_arg=""
+  if [[ -n "${schema}" ]]; then schema_arg=" -n ${schema}"; fi
+  PARTS+=("${out}.part" "${env_out}.part")
 
-echo "Dumping {{ backup_pg_database }} (schema {{ backup_pg_schema }}) from {{ backup_docker_host }}..."
-ssh -i "{{ backup_ssh_key_path }}" \
-  -o BatchMode=yes \
-  -o StrictHostKeyChecking=accept-new \
-  "{{ backup_docker_user }}@{{ backup_docker_host }}" \
-  "${REMOTE_CMD}" > "${OUT}.part"
+  # NOTE: the single quotes around the pg_dump invocation are load-bearing.
+  # They keep "$POSTGRES_USER" from being touched by Jinja, by this
+  # script's local bash, and by the remote login shell on the docker VM --
+  # it is only expanded by the "sh -c" running inside the container,
+  # where POSTGRES_USER actually lives.
+  local remote_cmd="docker exec ${container} sh -c 'pg_dump -U \"\$POSTGRES_USER\" -d ${database}${schema_arg} -Fc'"
 
-if [[ ! -s "${OUT}.part" ]]; then
-  echo "ERROR: pg_dump output is empty" >&2
-  exit 1
-fi
+  echo "Dumping ${database}${schema:+ (schema ${schema})} from {{ backup_docker_host }}..."
+  if ! ssh "${SSH_OPTS[@]}" "${REMOTE}" "${remote_cmd}" > "${out}.part"; then
+    echo "ERROR: pg_dump of ${database} failed" >&2
+    return 1
+  fi
+  if [[ ! -s "${out}.part" ]]; then
+    echo "ERROR: pg_dump output for ${database} is empty" >&2
+    return 1
+  fi
+  # Cheap real integrity check: make sure pg_restore can actually parse
+  # the archive's table of contents before we trust it as a good backup.
+  if ! pg_restore --list "${out}.part" >/dev/null 2>&1; then
+    echo "ERROR: pg_restore --list could not read the ${database} dump; it is corrupt" >&2
+    return 1
+  fi
+  mv "${out}.part" "${out}"
+  echo "Saved ${out}"
 
-# Cheap real integrity check: make sure pg_restore can actually parse
-# the archive's table of contents before we trust it as a good backup.
-if ! pg_restore --list "${OUT}.part" >/dev/null 2>&1; then
-  echo "ERROR: pg_restore --list could not read the dump; it is corrupt" >&2
-  exit 1
-fi
+  # The app's secrets file lives in no repo -- without it the dump is not
+  # restorable into a working app. Fetch it best-effort: its absence should
+  # warn, not fail the backup.
+  echo "Fetching ${env_file} from {{ backup_docker_host }}..."
+  if scp "${SSH_OPTS[@]}" "${REMOTE}:${env_file}" "${env_out}.part" 2>/dev/null; then
+    chmod 0600 "${env_out}.part"
+    mv "${env_out}.part" "${env_out}"
+    echo "Saved ${env_out}"
+  else
+    echo "WARNING: could not fetch ${env_file} from {{ backup_docker_host }} (missing or unreachable) -- continuing" >&2
+    rm -f "${env_out}.part"
+  fi
+}
 
-mv "${OUT}.part" "${OUT}"
-echo "Saved ${OUT}"
-
-# .env.prod is the only existing copy of the app's DB and Twilio
-# credentials -- it lives in no repo. Without it, this Postgres dump
-# is not restorable into a working app. Fetch it best-effort: its
-# absence should warn, not fail the whole backup run.
-echo "Fetching .env.prod from {{ backup_docker_host }}..."
-if scp -i "{{ backup_ssh_key_path }}" \
-    -o BatchMode=yes \
-    -o StrictHostKeyChecking=accept-new \
-    "{{ backup_docker_user }}@{{ backup_docker_host }}:/opt/party-time/.env.prod" \
-    "${ENV_OUT}.part" 2>/dev/null; then
-  chmod 0600 "${ENV_OUT}.part"
-  mv "${ENV_OUT}.part" "${ENV_OUT}"
-  echo "Saved ${ENV_OUT}"
-else
-  echo "WARNING: could not fetch .env.prod from {{ backup_docker_host }} (missing or unreachable) -- continuing" >&2
-  rm -f "${ENV_OUT}.part"
-fi
+FAILED=()
+{% for t in backup_pg_targets %}
+backup_one {{ t.name | quote }} {{ t.container | quote }} {{ t.database | quote }} {{ (t.schema | default('')) | quote }} {{ t.env_file | quote }} {{ t.env_prefix | quote }} || FAILED+=({{ t.name | quote }})
+{% endfor %}
 
 echo "Pruning dumps older than ${RETENTION_DAYS} days..."
 find "${BACKUP_DIR}" -maxdepth 1 -name '*.dump' -mtime "+${RETENTION_DAYS}" -delete
-find "${ENV_DIR}" -maxdepth 1 -name 'env.prod-*' -mtime "+${RETENTION_DAYS}" -delete
+find "${ENV_DIR}" -maxdepth 1 -name '*env.prod-*' -mtime "+${RETENTION_DAYS}" -delete
 
+if [[ -n "${FAILED[*]-}" ]]; then
+  echo "ERROR: backup failed for: ${FAILED[*]}" >&2
+  exit 1
+fi
 date -u +%Y-%m-%dT%H:%M:%SZ > "{{ backup_root }}/LAST_SUCCESS_postgres"
 echo "Postgres backup complete."

@@ -5,7 +5,7 @@ Three layers, from coarse to fine:
 | What | How | Where it lands | Schedule |
 |---|---|---|---|
 | Every guest, whole (VMs and LXCs) | Proxmox vzdump jobs, `ansible/roles/proxmox_host/tasks/backups.yml` | USB backup disk | 02:30 Central, nightly |
-| party-time Postgres, Home Assistant | `backup` role on the backup LXC (pull over SSH / HA API) | backup LXC's own disk, `/var/backups/homelab/` | 03:15 / 03:45 UTC |
+| party-time and trips Postgres, Home Assistant | `backup` role on the backup LXC (pull over SSH / HA API; databases listed in `backup_pg_targets`) | backup LXC's own disk, `/var/backups/homelab/` | 03:15 / 03:45 UTC |
 | Immich photo libraries | restic from the Immich VM (`immich` role) | restic REST server on the docker VM | 04:15 UTC |
 
 The guest-level vzdump jobs are the safety net for everything else: a bad
@@ -85,3 +85,18 @@ vzdump notifies the `mail-to-root` target, which mails `root@pam`'s address
 (`klpanahi2@gmail.com`). Whether mail actually leaves the Proxmox hosts hasn't
 been checked; until it is, look at Datacenter → Backup / the task log after a
 change.
+
+## Restoring a Postgres dump
+
+Dumps are `/var/backups/homelab/postgres/<name>-<timestamp>.dump` on the backup LXC (`backup.home.arpa`), with the
+app's secrets file next to them in `postgres/env/`. To check one, or restore it, into a scratch database:
+
+```bash
+scp root@backup.home.arpa:/var/backups/homelab/postgres/trips-<timestamp>.dump .
+docker exec trips-dev-db psql -U trips -d trips -c "CREATE DATABASE restore_test"
+docker exec -i trips-dev-db pg_restore -U trips -d restore_test --no-owner < trips-<timestamp>.dump
+```
+
+Tested 2026-11-26: the first trips dump restored with every row (48 trips, 3 pages, 14 inbox items, 68 log
+lines, history) matching the live app.
+
